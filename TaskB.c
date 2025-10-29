@@ -36,6 +36,8 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <sys/utsname.h>
+#include <unistd.h>
 
 
 float * tensor1; //pointer to tensor
@@ -66,7 +68,16 @@ float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-
+//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
+// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
+// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
+// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
+// Used online videos, stack overflow
+double compute_arithmetic_intensity(double flops, double bytes) {
+    return flops / bytes;
+}
 
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
 
@@ -96,6 +107,10 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                                     float s = (*in)[in_subscript];
                                     float w = (*filter)[filter_subscript];
                                     temp += s * w;
+                                    double flops = 2.0 * batch_size * output_height * output_width * output_channels * kernel_height * kernel_width * input_channels;
+                                    double bytes = 4.0 * (input_size + weight_size + output_size);
+                                    double ai = compute_arithmetic_intensity(flops, bytes);
+                                    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
 
 
                                 }
@@ -174,10 +189,12 @@ void max_pooling(float** input, float** output,
 }
 
 
+//Task B here B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine, full info near conv2d
 
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
-
+   
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
         
@@ -188,6 +205,10 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
             }
             
             (*output)[b * output_dim + i] = sum;
+            double flops_fc = 2.0 * batch_size * input_dim * output_dim;
+            double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
+            double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
+            printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
         }
     }
     
@@ -493,8 +514,34 @@ cnn();
 run_time = (omp_get_wtime() - start_time);
 printf("\n\nThe model's latency is %f seconds\n",  run_time);
 
-    
+double achieved_flops = flops / exec_time;
+printf("Conv2D FLOPs/sec: %.2f GFLOPs\n", achieved_flops / 1e9);
+double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+double achieved_flops = flops / run_time;
+
+struct utsname sysinfo;
+uname(&sysinfo);
+printf("OS: %s %s\n", sysinfo.sysname, sysinfo.release);
+
+long pages = sysconf(_SC_PHYS_PAGES);
+long page_size = sysconf(_SC_PAGE_SIZE);
+printf("RAM: %.2f GB\n", (pages * page_size) / (1024.0 * 1024 * 1024));
+
+FILE* cpuinfo = fopen("/proc/cpuinfo", "r");
+char line[256];
+while (fgets(line, sizeof(line), cpuinfo)) {
+    if (strstr(line, "model name")) {
+        printf("CPU: %s", line);
+        break;
+    }
+}
+fclose(cpuinfo);
+double clock_speed = 1.7e9;
+int flops_per_cycle = 16;   
+double peak_flops = clock_speed * flops_per_cycle;
+printf("Peak FLOPs (1 core): %.2f GFLOPs\n", peak_flops / 1e9);
 return 0;
 }
+
 
 
