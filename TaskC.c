@@ -1,3 +1,4 @@
+
 /*
 ------------------DR VASILIOS KELEFOURAS-----------------------------------------------------
 ------------------COMP3001 ------------------------------------------------------------------
@@ -36,6 +37,8 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <sys/utsname.h>
+#include <unistd.h>
 
 
 float * tensor1; //pointer to tensor
@@ -66,7 +69,70 @@ float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-//Task C � Merge Conv2D layer with ReLU[12 Marks].
+//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
+// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
+// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
+// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
+// Used online videos, stack overflow
+struct AdjListNode {
+    int dest;
+    struct AdjListNode* next;
+};
+struct Graph {
+    int V;
+    struct AdjListNode** array;
+};
+
+// Function to create a new adjacency list node
+struct AdjListNode* newAdjListNode(int dest) {
+    struct AdjListNode* newNode = malloc(sizeof(struct AdjListNode));
+    newNode->dest = dest;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Function to create a graph of V vertices
+struct Graph* createGraph(int V) {
+    struct Graph* graph = malloc(sizeof(struct Graph));
+    graph->V = V;
+    graph->array = calloc(V, sizeof(struct AdjListNode*));
+    return graph;
+}
+
+// Function to add an edge to an undirected graph
+void addEdge(struct Graph* graph, int src, int dest) {
+
+    // Add an edge from src to dest
+    struct AdjListNode* node = newAdjListNode(dest);
+    node->next = graph->array[src];
+    graph->array[src] = node;
+
+    // Since the graph is undirected, add an edge from dest to src
+    node = newAdjListNode(src);
+    node->next = graph->array[dest];
+    graph->array[dest] = node;
+}
+
+// Function to print the adjacency list
+void printGraph(struct Graph* graph) {
+    for (int i = 0; i < graph->V; i++) {
+        printf("%d:", i);
+        for (struct AdjListNode* cur = graph->array[i]; cur; cur = cur->next) {
+            printf(" %d", cur->dest);
+        }
+        printf("\n");
+    }
+}
+
+double compute_arithmetic_intensity(double flops, double bytes) {
+    return flops / bytes;
+}
+double compute_flops(double flops , double time) {
+    return flops/ time;
+}
+//Task C – Merge Conv2D layer with ReLU[12 Marks].
 // Apply loop merge optimization to Conv2d and ReLU layers.
 // This is a common optimization applied by modern optimization frameworks.
 //My Notes: Loop unroll transformation
@@ -74,11 +140,13 @@ float *bias7;
 //Use as less complex operations as possible
 //Inline Assembly -  __asm { //assembly code}
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
-
+    double start_timeC, run_timeC;
     float temp;
-
-    unsigned int X=(Xin-(MaskX-StrideX)) / StrideX;
-    unsigned int Y=(Yin-(MaskY-StrideY)) / StrideY;
+    unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
+    unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
+    int V = 5;
+    struct Graph* graph = createGraph(V);
+    start_timeC = omp_get_wtime();
 
     for (unsigned int b = 0; b < B; b++) { //batch
         for(unsigned int m = 0; m < M; m++){
@@ -101,6 +169,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                                     float s = (*in)[in_subscript];
                                     float w = (*filter)[filter_subscript];
                                     temp += s * w;
+                                   
 
 
                                 }
@@ -113,13 +182,29 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                                                                + m;
 
                         (*out)[out_subscript] = temp + (*bias)[m];
-
+                        
                     }
+             
                 }
-            }
+                
+        }
+
          }
-
-
+    run_timeC = (omp_get_wtime() - start_timeC);
+    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+    double input_size = B * Yin * Xin * D;
+    double weight_size = M * MaskY * MaskX * D;
+    double output_size = B * Y * X * M;
+    double bytes = 4.0 * (input_size + weight_size + output_size);
+    double ai = compute_arithmetic_intensity(flops, bytes);
+    double fl = compute_flops(flops,run_timeC);
+    printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
+    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+   // addEdge(graph, 0, fl);
+    addEdge(graph, 1, ai);
+    printf("Adjacency list representation:\n");
+    printGraph(graph);
+    //return 0;
 /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
@@ -144,7 +229,6 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     */
 
 }
-
 void ReLU(float** input, float** output,
     int batch_size, int height, int width, int channels) {
     int index = 0;
@@ -185,6 +269,8 @@ for (int b = 0; b < batch_size; b++) {
 }
 
 
+
+
 void max_pooling(float** input, float** output,
                       int batch_size, int in_height, int in_width, int channels,
                       int pool_size, int stride) {
@@ -216,10 +302,15 @@ void max_pooling(float** input, float** output,
 }
 
 
+//Task B here B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine, full info near conv2d
 
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
-
+    double start_time, run_time;
+    start_time = omp_get_wtime();
+    int V = 5;
+    struct Graph* graph = createGraph(V);
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
         
@@ -230,9 +321,21 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
             }
             
             (*output)[b * output_dim + i] = sum;
+            
         }
     }
-    
+    run_time = (omp_get_wtime() - start_time);
+    double flops_fc = 2.0 * batch_size * input_dim * output_dim;
+    double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
+    double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
+    double fl_fc = compute_flops(flops_fc, run_time);
+    printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
+    printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
+    //addEdge(graph, 0, fl_fc);
+    addEdge(graph, 1, ai_fc);
+    printf("Adjacency list representation:\n");
+    printGraph(graph);
+   // return 0;
     /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
@@ -248,7 +351,6 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     */
     
 }
-
 
 
 
@@ -494,9 +596,33 @@ cnn();
 
 run_time = (omp_get_wtime() - start_time);
 printf("\n\nThe model's latency is %f seconds\n",  run_time);
+//double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+//double achieved_flops = flops / run_time;
+//printf("Conv2D FLOPs/sec: %.2f GFLOPs\n", achieved_flops / 1e9);
 
-    
+struct utsname sysinfo;
+uname(&sysinfo);
+printf("OS: %s %s\n", sysinfo.sysname, sysinfo.release);
+
+long pages = sysconf(_SC_PHYS_PAGES);
+long page_size = sysconf(_SC_PAGE_SIZE);
+printf("RAM: %.2f GB\n", (pages * page_size) / (1024.0 * 1024 * 1024));
+
+FILE* cpuinfo = fopen("/proc/cpuinfo", "r");
+char line[256];
+while (fgets(line, sizeof(line), cpuinfo)) {
+    if (strstr(line, "model name")) {
+        printf("CPU: %s", line);
+        break;
+    }
+}
+fclose(cpuinfo);
+double clock_speed = 1.7e9;
+int flops_per_cycle = 16;   
+double peak_flops = clock_speed * flops_per_cycle;
+printf("Peak FLOPs (1 core): %.2f GFLOPs\n", peak_flops / 1e9);
 return 0;
 }
+
 
 
