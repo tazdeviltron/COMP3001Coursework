@@ -1,9 +1,3 @@
-/*
-------------------DR VASILIOS KELEFOURAS-----------------------------------------------------
-------------------COMP3001 ------------------------------------------------------------------
-------------------PARALLEL PROGAMMING MODULE-------------------------------------------------
-------------------UNIVERSITY OF PLYMOUTH, SCHOOL OF ENGINEERING, COMPUTING AND MATHEMATICS---
-*/
 
 /*
 THIS IS AN IMPLEMENTATION OF A SIMPLE CNN MODEL USING 17 LAYERS. 
@@ -65,64 +59,151 @@ float *bias6;
 float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+//Task E – Optimize FC layers.
+// Drawing upon all optimization techniques learned in this module, you are to accelerate the first FC routine.
+// One required optimization is vectorization, using only the x86-64 SSE/SSE2/SSE4/AVX/AVX2 C/C++ intrinsics covered in this module.
+// For each applied optimization, provide the FLOPs value achieved both before and after its implementation. 
+// Create a graph showing FLOPs versus the applied optimizations, 
+// illustrating the FLOPs value of the original implementation, after vectorization, after register blocking, and so on.
+//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
+// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
+// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
+// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
+// Used online videos, stack overflow
+struct AdjListNodes {
+    int dest;
+    struct AdjListNodes* next;
+};
+struct Graph {
+    int V;
+    struct AdjListNodes** array;
+};
+
+// Function to create a new adjacency list node
+struct AdjListNodes* newAdjListNode(int dest) {
+    struct AdjListNodes* newNode = malloc(sizeof(struct AdjListNodes));
+    newNode->dest = dest;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Function to create a graph of V vertices
+struct Graph* createGraph(int V) {
+    struct Graph* graph = malloc(sizeof(struct Graph));
+    graph->V = V;
+    graph->array = calloc(V, sizeof(struct AdjListNodes*));
+    return graph;
+}
+
+// Function to add point to an undirected graph
+void addPoint(struct Graph* graph, int src, int dest) {
+
+    // Add an edge from src to dest
+    struct AdjListNodes* node = newAdjListNode(dest);
+    node->next = graph->array[src];
+    graph->array[src] = node;
+
+    // Since the graph is undirected, add an edge from dest to src
+    node = newAdjListNode(src);
+    node->next = graph->array[dest];
+    graph->array[dest] = node;
+}
+
+// Function to print the adjacency list
+void pGraph(struct Graph* graph) {
+    for (int i = 0; i < graph->V; i++) {
+        printf("%d:", i);
+        for (struct AdjListNodes* cur = graph->array[i]; cur; cur = cur->next) {
+            printf(" %d", cur->dest);
+        }
+        printf("\n");
+    }
+}
+
+double compute_arithmetic_intensity(double flops, double bytes) {
+    return flops / bytes;
+}
+double compute_flops(double flops, double time) {
+    return flops / time;
+}
 
 
-
-void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
-
+void conv_2dOriginal(float** in, float** filter, float** bias, float** out, unsigned int B, unsigned int Yin, unsigned int Xin, unsigned int D, unsigned int StrideY, unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M) {
+    double start_timeC, run_timeC;
     float temp;
-
-    unsigned int X=(Xin-(MaskX-StrideX)) / StrideX;
-    unsigned int Y=(Yin-(MaskY-StrideY)) / StrideY;
+    unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
+    unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
+    int V = 5;
+    struct Graph* graph = createGraph(V);
+    start_timeC = omp_get_wtime();
 
     for (unsigned int b = 0; b < B; b++) { //batch
-        for(unsigned int m = 0; m < M; m++){
-                for (unsigned int y = 0; y < Y; y++) {			//Output height
-                    for (unsigned int x = 0; x < X; x++) {			//Output Width
-                        temp = 0.0f;
-                        for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
-                            for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-                                for(unsigned int d = 0; d < D; d++) {
+        for (unsigned int m = 0; m < M; m++) {
+            for (unsigned int y = 0; y < Y; y++) {			//Output height
+                for (unsigned int x = 0; x < X; x++) {			//Output Width
+                    temp = 0.0f;
+                    for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
+                        for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
+                            for (unsigned int d = 0; d < D; d++) {
 
-                                    unsigned int in_subscript = b * (Yin * Xin * D)
-                                                                          + (y*StrideY+off_y) * Xin * D
-                                                                          + (x*StrideX+off_x) * D
-                                                                          + d;
-                                    unsigned int filter_subscript = m * MaskY * MaskX * D
-                                                                              + off_y * MaskX * D
-                                                                              + off_x * D
-                                                                              + d;
+                                unsigned int in_subscript = b * (Yin * Xin * D)
+                                    + (y * StrideY + off_y) * Xin * D
+                                    + (x * StrideX + off_x) * D
+                                    + d;
+                                unsigned int filter_subscript = m * MaskY * MaskX * D
+                                    + off_y * MaskX * D
+                                    + off_x * D
+                                    + d;
 
-                                    float s = (*in)[in_subscript];
-                                    float w = (*filter)[filter_subscript];
-                                    temp += s * w;
+                                float s = (*in)[in_subscript];
+                                float w = (*filter)[filter_subscript];
+                                temp += s * w;
 
 
-                                }
+
                             }
                         }
-
-                        unsigned int out_subscript = b * (M * Y * X) +
-                                                               y * (M * X) +
-                                                               x * M
-                                                               + m;
-
-                        (*out)[out_subscript] = temp + (*bias)[m];
-
                     }
+
+                    unsigned int out_subscript = b * (M * Y * X) +
+                        y * (M * X) +
+                        x * M
+                        + m;
+
+                    (*out)[out_subscript] = temp + (*bias)[m];
+
                 }
+
             }
-         }
 
+        }
 
+    }
+    run_timeC = (omp_get_wtime() - start_timeC);
+    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+    double input_size = B * Yin * Xin * D;
+    double weight_size = M * MaskY * MaskX * D;
+    double output_size = B * Y * X * M;
+    double bytes = 4.0 * (input_size + weight_size + output_size);
+    double ai = compute_arithmetic_intensity(flops, bytes);
+    double fl = compute_flops(flops, run_timeC);
+    printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
+    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+    // addEdge(graph, 0, fl);
+    addPoint(graph, 1, ai);
+    printf("Adjacency list representation:\n");
+    pGraph(graph);
+    //return 0;
 /*
-    //In case you find the above implementation complicated, it is equivalent to the code below. 
+    //In case you find the above implementation complicated, it is equivalent to the code below.
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
-    
-    for (unsigned int b = 0; b < B; b++) { 
+
+    for (unsigned int b = 0; b < B; b++) {
         for(unsigned int m = 0; m < M; m++){
-                for (unsigned int y = 0; y < Y; y++) {			
-                    for (unsigned int x = 0; x < X; x++) {			
+                for (unsigned int y = 0; y < Y; y++) {
+                    for (unsigned int x = 0; x < X; x++) {
                         temp = 0.0f;
                         for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
                             for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
@@ -140,6 +221,112 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
 
 }
 
+//Finish Task C and add here
+void conv_2d(float** in, float** filter, float** bias, float** out, unsigned int B, unsigned int Yin, unsigned int Xin, unsigned int D, unsigned int StrideY, unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M, float** input, float** output,
+    int height, int width, int channels) {
+    double start_timeC, run_timeC;
+    float temp;
+    unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
+    unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
+    int V = 5;
+    struct Graph* graph = createGraph(V);
+    start_timeC = omp_get_wtime();
+    int index = 0;
+
+    for (unsigned int b = 0; b < B; b++) { //batch
+        for (int h = 0; h < height; h++) {
+            for (int w = 0; w < width; w++) {
+                for (int c = 0; c < channels; c++) {
+                    index = ((b * height + h) * width + w) * channels + c;
+
+                    if ((*input)[index] > 0)
+                        (*output)[index] = (*input)[index];
+                    else
+                        (*output)[index] = 0.0f;
+
+                    for (unsigned int m = 0; m < M; m++) {
+                        for (unsigned int y = 0; y < Y; y++) {			//Output height
+                            for (unsigned int x = 0; x < X; x++) {			//Output Width
+                                temp = 0.0f;
+                                for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
+                                    for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
+                                        for (unsigned int d = 0; d < D; d++) {
+
+                                            unsigned int in_subscript = b * (Yin * Xin * D)
+                                                + (y * StrideY + off_y) * Xin * D
+                                                + (x * StrideX + off_x) * D
+                                                + d;
+                                            unsigned int filter_subscript = m * MaskY * MaskX * D
+                                                + off_y * MaskX * D
+                                                + off_x * D
+                                                + d;
+
+                                            float s = (*in)[in_subscript];
+                                            float w = (*filter)[filter_subscript];
+                                            temp += s * w;
+
+
+
+                                        }
+                                    }
+                                }
+
+                                unsigned int out_subscript = b * (M * Y * X) +
+                                    y * (M * X) +
+                                    x * M
+                                    + m;
+
+                                (*out)[out_subscript] = temp + (*bias)[m];
+
+                            }
+
+                        }
+
+                    }
+
+                }
+            }
+        }
+    }
+    run_timeC = (omp_get_wtime() - start_timeC);
+    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+    double input_size = B * Yin * Xin * D;
+    double weight_size = M * MaskY * MaskX * D;
+    double output_size = B * Y * X * M;
+    double bytes = 4.0 * (input_size + weight_size + output_size);
+    double ai = compute_arithmetic_intensity(flops, bytes);
+    double fl = compute_flops(flops, run_timeC);
+    printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
+    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+    // addEdge(graph, 0, fl);
+    addPoint(graph, 1, ai);
+    printf("Adjacency list representation:\n");
+    pGraph(graph);
+    //return 0;
+/*
+    //In case you find the above implementation complicated, it is equivalent to the code below.
+    //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
+
+    for (unsigned int b = 0; b < B; b++) {
+        for(unsigned int m = 0; m < M; m++){
+                for (unsigned int y = 0; y < Y; y++) {
+                    for (unsigned int x = 0; x < X; x++) {
+                        temp = 0.0f;
+                        for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
+                            for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
+                                for(unsigned int d = 0; d < D; d++) {
+                                    temp += in[b][y][x][d] * filter[m][off_y][off_x][d];
+                                }
+                            }
+                        }
+                        out[b][y][x][m] = temp + bias[m];
+                    }
+                }
+            }
+        }
+    */
+
+}
 
 
 
@@ -175,36 +362,55 @@ void max_pooling(float** input, float** output,
 
 
 
+
+//Task B here B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine, full info near conv2d
+
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
-
+    double start_time, run_time;
+    start_time = omp_get_wtime();
+    int V = 5;
+    struct Graph* graph = createGraph(V);
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
-        
+
             float sum = (*bias)[i];
-            
+
             for (int j = 0; j < input_dim; j++) {
                 sum += (*weights)[i * input_dim + j] * (*input)[b * input_dim + j];
             }
-            
+
             (*output)[b * output_dim + i] = sum;
+
         }
     }
-    
-    /*
-    //In case you find the above implementation complicated, it is equivalent to the code below. 
-    //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
-    
-    for (int b = 0; b < batch_size; b++) {
-        for (int i = 0; i < output_dim; i++) {  
-            for (int j = 0; j < input_dim; j++) {
-                output[b][i] += weights[i][j] * input[b][j] + bias[i];
-            }
-            
-        }
-    }
-    */
-    
+    run_time = (omp_get_wtime() - start_time);
+    double flops_fc = 2.0 * batch_size * input_dim * output_dim;
+    double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
+    double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
+    double fl_fc = compute_flops(flops_fc, run_time);
+    printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
+    printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
+    //addEdge(graph, 0, fl_fc);
+    addPoint(graph, 1, ai_fc);
+    printf("Adjacency list representation:\n");
+    pGraph(graph);
+    // return 0;
+     /*
+     //In case you find the above implementation complicated, it is equivalent to the code below.
+     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
+
+     for (int b = 0; b < batch_size; b++) {
+         for (int i = 0; i < output_dim; i++) {
+             for (int j = 0; j < input_dim; j++) {
+                 output[b][i] += weights[i][j] * input[b][j] + bias[i];
+             }
+
+         }
+     }
+     */
+
 }
 
 
@@ -404,7 +610,8 @@ create_load_input_tensor(&tensor1,batch_size,64,64,3,1,1,3,3,32);
 create_load_output_tensor(&tensor2,batch_size,62,62,32);
 create_load_filter(&filter1,32,3,3,3);
 create_load_bias(&bias1,32);
-conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32);
+conv_2dOriginal(&tensor1, &filter1, &bias1, &tensor2, batch_size, 64, 64, 3, 1, 1, 3, 3, 32);
+conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32,62,62,32);
 
 //LAYER #2 - ReLU 	[batch, 62, 62, 32]
 ReLU(&tensor2,&tensor2,batch_size,62,62,32);
@@ -417,7 +624,8 @@ max_pooling(&tensor2,&tensor3, batch_size, 62, 62, 32,2,2);
 create_load_output_tensor(&tensor4,batch_size,29,29,64);
 create_load_filter(&filter2,64,32,3,3);
 create_load_bias(&bias2,64);
-conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64);
+conv_2dOriginal(&tensor3, &filter2, &bias2, &tensor4, batch_size, 31, 31, 32, 1, 1, 3, 3, 64);
+conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64,29,29,64);
 
 //LAYER #5 - ReLU
 ReLU(&tensor4,&tensor4,batch_size,29,29,64);
@@ -430,7 +638,8 @@ max_pooling(&tensor4,&tensor5, batch_size, 29, 29, 64,2,2);
 create_load_output_tensor(&tensor6,batch_size,12,12,128);
 create_load_filter(&filter3,128,64,3,3);
 create_load_bias(&bias3,128);
-conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128);
+conv_2dOriginal(&tensor5, &filter3, &bias3, &tensor6, batch_size, 14, 14, 64, 1, 1, 3, 3, 128);
+conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128,12,12,128);
 
 //LAYER #8 - ReLU
 ReLU(&tensor6,&tensor6,batch_size,12,12,128);
@@ -439,7 +648,8 @@ ReLU(&tensor6,&tensor6,batch_size,12,12,128);
 create_load_output_tensor(&tensor7,batch_size,10,10,256);
 create_load_filter(&filter4,256,128,3,3);
 create_load_bias(&bias4,256);
-conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256);
+conv_2dOriginal(&tensor6, &filter4, &bias4, &tensor7, batch_size, 12, 12, 128, 1, 1, 3, 3, 256);
+conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256,10,10,256);
 
 //LAYER #10 - ReLU
 ReLU(&tensor7,&tensor7,batch_size,10,10,256);
@@ -448,7 +658,8 @@ ReLU(&tensor7,&tensor7,batch_size,10,10,256);
 create_load_output_tensor(&tensor8,batch_size,8,8,256);
 create_load_filter(&filter5,256,256,3,3);
 create_load_bias(&bias5,256);
-conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256);
+conv_2dOriginal(&tensor7, &filter5, &bias5, &tensor8, batch_size, 10, 10, 256, 1, 1, 3, 3, 256);
+conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256,8,8,256);
 
 //LAYER #12 - ReLU
 ReLU(&tensor8,&tensor8,batch_size,8,8,256);
@@ -492,8 +703,27 @@ cnn();
 
 run_time = (omp_get_wtime() - start_time);
 printf("\n\nThe model's latency is %f seconds\n",  run_time);
+struct utsname sysinfo;
+uname(&sysinfo);
+printf("OS: %s %s\n", sysinfo.sysname, sysinfo.release);
 
-    
+long pages = sysconf(_SC_PHYS_PAGES);
+long page_size = sysconf(_SC_PAGE_SIZE);
+printf("RAM: %.2f GB\n", (pages * page_size) / (1024.0 * 1024 * 1024));
+
+FILE* cpuinfo = fopen("/proc/cpuinfo", "r");
+char line[256];
+while (fgets(line, sizeof(line), cpuinfo)) {
+    if (strstr(line, "model name")) {
+        printf("CPU: %s", line);
+        break;
+    }
+}
+fclose(cpuinfo);
+double clock_speed = 1.7e9;
+int flops_per_cycle = 16;
+double peak_flops = clock_speed * flops_per_cycle;
+printf("Peak FLOPs (1 core): %.2f GFLOPs\n", peak_flops / 1e9);
 return 0;
 }
 
