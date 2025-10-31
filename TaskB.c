@@ -129,9 +129,13 @@ void printGraph(struct Graph* graph) {
 double compute_arithmetic_intensity(double flops, double bytes) {
     return flops / bytes;
 }
+double compute_flops(double flops , double time) {
+    return flops/ time;
+}
 
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
-
+    double start_time, run_time;
+    start_time = omp_get_wtime();
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
@@ -180,13 +184,15 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
         }
 
          }
+    run_time = (omp_get_wtime() - start_time);
     double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
     double input_size = B * Yin * Xin * D;
     double weight_size = M * MaskY * MaskX * D;
     double output_size = B * Y * X * M;
     double bytes = 4.0 * (input_size + weight_size + output_size);
     double ai = compute_arithmetic_intensity(flops, bytes);
-    printf("Conv2d Layer FLOPs:\n", flops);
+    double fl = compute_flops(flops,run_time);
+    printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
     printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
     addEdge(graph, 0, flops);
     addEdge(graph, 1, ai);
@@ -257,6 +263,8 @@ void max_pooling(float** input, float** output,
 
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
+    double start_time, run_time;
+    start_time = omp_get_wtime();
     int V = 5;
     struct Graph* graph = createGraph(V);
     for (int b = 0; b < batch_size; b++) {
@@ -272,10 +280,12 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
             
         }
     }
+    run_time = (omp_get_wtime() - start_time);
     double flops_fc = 2.0 * batch_size * input_dim * output_dim;
     double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
     double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
-    printf("FC Layer FLOPs:\n", flops_fc);
+    double fl_fc = compute_flops(flops_fc, run_time);
+    printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
     printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
     addEdge(graph, 0, flops_fc);
     addEdge(graph, 1, ai_fc);
