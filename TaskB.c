@@ -134,13 +134,13 @@ double compute_flops(double flops , double time) {
 }
 
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
-    double start_time, run_time;
-    start_time = omp_get_wtime();
+    double start_timeC, run_timeC;
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
     int V = 5;
     struct Graph* graph = createGraph(V);
+    start_timeC = omp_get_wtime();
 
     for (unsigned int b = 0; b < B; b++) { //batch
         for(unsigned int m = 0; m < M; m++){
@@ -184,14 +184,14 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
         }
 
          }
-    run_time = (omp_get_wtime() - start_time);
+    run_timeC = (omp_get_wtime() - start_timeC);
     double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
     double input_size = B * Yin * Xin * D;
     double weight_size = M * MaskY * MaskX * D;
     double output_size = B * Y * X * M;
     double bytes = 4.0 * (input_size + weight_size + output_size);
     double ai = compute_arithmetic_intensity(flops, bytes);
-    double fl = compute_flops(flops,run_time);
+    double fl = compute_flops(flops,run_timeC);
     printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
     printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
     addEdge(graph, 0, flops);
