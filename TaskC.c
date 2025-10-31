@@ -66,8 +66,13 @@ float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-
-
+//Task C – Merge Conv2D layer with ReLU[12 Marks].
+// Apply loop merge optimization to Conv2d and ReLU layers.
+// This is a common optimization applied by modern optimization frameworks.
+//My Notes: Loop unroll transformation
+//Scalar replacement transformation
+//Use as less complex operations as possible
+//Inline Assembly -  __asm { //assembly code}
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
 
     float temp;
@@ -140,7 +145,44 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
 
 }
 
+void ReLU(float** input, float** output,
+    int batch_size, int height, int width, int channels) {
+    int index = 0;
+    for (int b = 0; b < batch_size; b++) {
+        for (int h = 0; h < height; h++) {
+            for (int w = 0; w < width; w++) {
+                for (int c = 0; c < channels; c++) {
+                    index = ((b * height + h) * width + w) * channels + c;
 
+                    if ((*input)[index] > 0)
+                        (*output)[index] = (*input)[index];
+                    else
+                        (*output)[index] = 0.0f;
+
+                }
+            }
+        }
+    }
+
+    /*
+//In case you find the above implementation complicated, it is equivalent to the code below.
+//So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
+
+for (int b = 0; b < batch_size; b++) {
+    for (int h = 0; h < height; h++) {
+        for (int w = 0; w < width; w++) {
+            for (int c = 0; c < channels; c++) {
+                if ( input[b][h][w][c] > 0 )
+                 output[b][h][w][c] = input[b][h][w][c];
+                else
+                 output[b][h][w][c] = 0.0f;
+            }
+        }
+    }
+*/
+
+
+}
 
 
 void max_pooling(float** input, float** output,
@@ -207,46 +249,6 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     
 }
 
-
-
-void ReLU(float** input, float** output,
-               int batch_size, int height, int width, int channels) {
-    int index = 0;
-    for (int b = 0; b < batch_size; b++) {
-        for (int h = 0; h < height; h++) {
-            for (int w = 0; w < width; w++) {
-                for (int c = 0; c < channels; c++) {
-                    index = ((b * height + h) * width + w) * channels + c;
-                    
-                    if ( (*input)[index] > 0 )
-                     (*output)[index] = (*input)[index];
-                    else 
-                      (*output)[index] = 0.0f; 
-
-                }
-            }
-        }
-    }
-    
-        /*
-    //In case you find the above implementation complicated, it is equivalent to the code below. 
-    //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
-    
-    for (int b = 0; b < batch_size; b++) {
-        for (int h = 0; h < height; h++) {
-            for (int w = 0; w < width; w++) {
-                for (int c = 0; c < channels; c++) {                   
-                    if ( input[b][h][w][c] > 0 )
-                     output[b][h][w][c] = input[b][h][w][c];
-                    else 
-                     output[b][h][w][c] = 0.0f; 
-                }
-            }
-        }
-    */
-    
-    
-}
 
 
 
