@@ -107,10 +107,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                                     float s = (*in)[in_subscript];
                                     float w = (*filter)[filter_subscript];
                                     temp += s * w;
-                                    double flops = 2.0 * batch_size * output_height * output_width * output_channels * kernel_height * kernel_width * input_channels;
-                                    double bytes = 4.0 * (input_size + weight_size + output_size);
-                                    double ai = compute_arithmetic_intensity(flops, bytes);
-                                    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+                                   
 
 
                                 }
@@ -123,7 +120,10 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                                                                + m;
 
                         (*out)[out_subscript] = temp + (*bias)[m];
-
+                        double flops = 2.0 * batch_size * output_height * output_width * output_channels * kernel_height * kernel_width * input_channels;
+                        double bytes = 4.0 * (input_size + weight_size + output_size);
+                        double ai = compute_arithmetic_intensity(flops, bytes);
+                        printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
                     }
                 }
             }
