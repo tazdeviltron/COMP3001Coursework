@@ -1,12 +1,5 @@
 
 /*
-------------------DR VASILIOS KELEFOURAS-----------------------------------------------------
-------------------COMP3001 ------------------------------------------------------------------
-------------------PARALLEL PROGAMMING MODULE-------------------------------------------------
-------------------UNIVERSITY OF PLYMOUTH, SCHOOL OF ENGINEERING, COMPUTING AND MATHEMATICS---
-*/
-
-/*
 THIS IS AN IMPLEMENTATION OF A SIMPLE CNN MODEL USING 17 LAYERS. 
 COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 */
@@ -76,18 +69,18 @@ float *bias7;
 // b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
 //Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
 // Used online videos, stack overflow
-struct AdjListNode {
+struct AdjListNodes {
     int dest;
-    struct AdjListNode* next;
+    struct AdjListNodes* next;
 };
 struct Graph {
     int V;
-    struct AdjListNode** array;
+    struct AdjListNodes** array;
 };
 
 // Function to create a new adjacency list node
-struct AdjListNode* newAdjListNode(int dest) {
-    struct AdjListNode* newNode = malloc(sizeof(struct AdjListNode));
+struct AdjListNodes* newAdjListNode(int dest) {
+    struct AdjListNodes* newNode = malloc(sizeof(struct AdjListNodes));
     newNode->dest = dest;
     newNode->next = NULL;
     return newNode;
@@ -97,15 +90,15 @@ struct AdjListNode* newAdjListNode(int dest) {
 struct Graph* createGraph(int V) {
     struct Graph* graph = malloc(sizeof(struct Graph));
     graph->V = V;
-    graph->array = calloc(V, sizeof(struct AdjListNode*));
+    graph->array = calloc(V, sizeof(struct AdjListNodes*));
     return graph;
 }
 
-// Function to add an edge to an undirected graph
-void addEdge(struct Graph* graph, int src, int dest) {
+// Function to add an point to an undirected graph
+void addPoint(struct Graph* graph, int src, int dest) {
 
     // Add an edge from src to dest
-    struct AdjListNode* node = newAdjListNode(dest);
+    struct AdjListNodes* node = newAdjListNode(dest);
     node->next = graph->array[src];
     graph->array[src] = node;
 
@@ -116,10 +109,10 @@ void addEdge(struct Graph* graph, int src, int dest) {
 }
 
 // Function to print the adjacency list
-void printGraph(struct Graph* graph) {
+void pGraph(struct Graph* graph) {
     for (int i = 0; i < graph->V; i++) {
         printf("%d:", i);
-        for (struct AdjListNode* cur = graph->array[i]; cur; cur = cur->next) {
+        for (struct AdjListNodes* cur = graph->array[i]; cur; cur = cur->next) {
             printf(" %d", cur->dest);
         }
         printf("\n");
@@ -216,9 +209,9 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
     printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
    // addEdge(graph, 0, fl);
-    addEdge(graph, 1, ai);
+    addPoint(graph, 1, ai);
     printf("Adjacency list representation:\n");
-    printGraph(graph);
+    pGraph(graph);
     //return 0;
 /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
@@ -347,9 +340,9 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
     printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
     //addEdge(graph, 0, fl_fc);
-    addEdge(graph, 1, ai_fc);
+    addPoint(graph, 1, ai_fc);
     printf("Adjacency list representation:\n");
-    printGraph(graph);
+    pGraph(graph);
    // return 0;
     /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
