@@ -72,7 +72,7 @@ float *bias7;
 //#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
 // - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
 // a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
-// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+// b) the lines of code that calculate the FLOPs values, and c) the systemâ€™s information (CPU and DDR specs and OS) 
 //Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
 // Used online videos, stack overflow
 struct AdjListNode {
@@ -273,7 +273,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
     double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
     printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
-    addEdge(graph, b, ai_fc);
+    addEdge(graph, 0, ai_fc);
     printf("Adjacency list representation:\n");
     printGraph(graph);
    // return 0;
