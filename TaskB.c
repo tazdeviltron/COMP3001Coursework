@@ -127,7 +127,7 @@ void printGraph(struct Graph* graph) {
 }
 
 double compute_arithmetic_intensity(double flops, double bytes) {
-    return flops / bytes;
+    return flops/ bytes;
 }
 double compute_flops(double flops , double time) {
     return flops/ time;
