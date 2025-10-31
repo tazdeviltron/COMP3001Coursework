@@ -72,7 +72,7 @@ float *bias7;
 //#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
 // - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
 // a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
-// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+// b) the lines of code that calculate the FLOPs values, and c) the systemâ€™s information (CPU and DDR specs and OS) 
 //Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
 // Used online videos, stack overflow
 struct AdjListNode {
