@@ -515,9 +515,9 @@ cnn();
 
 run_time = (omp_get_wtime() - start_time);
 printf("\n\nThe model's latency is %f seconds\n",  run_time);
-double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
-double achieved_flops = flops / run_time;
-printf("Conv2D FLOPs/sec: %.2f GFLOPs\n", achieved_flops / 1e9);
+//double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+//double achieved_flops = flops / run_time;
+//printf("Conv2D FLOPs/sec: %.2f GFLOPs\n", achieved_flops / 1e9);
 
 struct utsname sysinfo;
 uname(&sysinfo);
