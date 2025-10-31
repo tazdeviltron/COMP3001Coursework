@@ -139,7 +139,8 @@ double compute_flops(double flops , double time) {
 //Scalar replacement transformation
 //Use as less complex operations as possible
 //Inline Assembly -  __asm { //assembly code}
-void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
+void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M, float** input, float** output,
+   int height, int width, int channels){
     double start_timeC, run_timeC;
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
@@ -147,49 +148,63 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     int V = 5;
     struct Graph* graph = createGraph(V);
     start_timeC = omp_get_wtime();
+    int index = 0;
 
     for (unsigned int b = 0; b < B; b++) { //batch
-        for(unsigned int m = 0; m < M; m++){
-                for (unsigned int y = 0; y < Y; y++) {			//Output height
-                    for (unsigned int x = 0; x < X; x++) {			//Output Width
-                        temp = 0.0f;
-                        for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
-                            for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-                                for(unsigned int d = 0; d < D; d++) {
+        for (int h = 0; h < height; h++) {
+            for (int w = 0; w < width; w++) {
+                for (int c = 0; c < channels; c++) {
+                    index = ((b * height + h) * width + w) * channels + c;
 
-                                    unsigned int in_subscript = b * (Yin * Xin * D)
-                                                                          + (y*StrideY+off_y) * Xin * D
-                                                                          + (x*StrideX+off_x) * D
-                                                                          + d;
-                                    unsigned int filter_subscript = m * MaskY * MaskX * D
-                                                                              + off_y * MaskX * D
-                                                                              + off_x * D
-                                                                              + d;
+                    if ((*input)[index] > 0)
+                        (*output)[index] = (*input)[index];
+                    else
+                        (*output)[index] = 0.0f;
 
-                                    float s = (*in)[in_subscript];
-                                    float w = (*filter)[filter_subscript];
-                                    temp += s * w;
-                                   
+                    for (unsigned int m = 0; m < M; m++) {
+                        for (unsigned int y = 0; y < Y; y++) {			//Output height
+                            for (unsigned int x = 0; x < X; x++) {			//Output Width
+                                temp = 0.0f;
+                                for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
+                                    for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
+                                        for (unsigned int d = 0; d < D; d++) {
+
+                                            unsigned int in_subscript = b * (Yin * Xin * D)
+                                                + (y * StrideY + off_y) * Xin * D
+                                                + (x * StrideX + off_x) * D
+                                                + d;
+                                            unsigned int filter_subscript = m * MaskY * MaskX * D
+                                                + off_y * MaskX * D
+                                                + off_x * D
+                                                + d;
+
+                                            float s = (*in)[in_subscript];
+                                            float w = (*filter)[filter_subscript];
+                                            temp += s * w;
 
 
+
+                                        }
+                                    }
                                 }
+
+                                unsigned int out_subscript = b * (M * Y * X) +
+                                    y * (M * X) +
+                                    x * M
+                                    + m;
+
+                                (*out)[out_subscript] = temp + (*bias)[m];
+
                             }
+
                         }
 
-                        unsigned int out_subscript = b * (M * Y * X) +
-                                                               y * (M * X) +
-                                                               x * M
-                                                               + m;
-
-                        (*out)[out_subscript] = temp + (*bias)[m];
-                        
                     }
-             
-                }
-                
-        }
 
-         }
+                }
+            }
+        }
+    }
     run_timeC = (omp_get_wtime() - start_timeC);
     double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
     double input_size = B * Yin * Xin * D;
@@ -230,22 +245,22 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
 
 }
 void ReLU(float** input, float** output,
-    int batch_size, int height, int width, int channels) {
-    int index = 0;
-    for (int b = 0; b < batch_size; b++) {
-        for (int h = 0; h < height; h++) {
-            for (int w = 0; w < width; w++) {
-                for (int c = 0; c < channels; c++) {
-                    index = ((b * height + h) * width + w) * channels + c;
+   int batch_size, int height, int width, int channels) {
+   int index = 0;
+   for (int b = 0; b < batch_size; b++) {
+       for (int h = 0; h < height; h++) {
+           for (int w = 0; w < width; w++) {
+               for (int c = 0; c < channels; c++) {
+                   index = ((b * height + h) * width + w) * channels + c;
 
-                    if ((*input)[index] > 0)
-                        (*output)[index] = (*input)[index];
-                    else
-                        (*output)[index] = 0.0f;
+                   if ((*input)[index] > 0)
+                      (*output)[index] = (*input)[index];
+                   else
+                       (*output)[index] = 0.0f;
 
-                }
-            }
-        }
+               }
+           }
+       }
     }
 
     /*
@@ -508,10 +523,10 @@ create_load_input_tensor(&tensor1,batch_size,64,64,3,1,1,3,3,32);
 create_load_output_tensor(&tensor2,batch_size,62,62,32);
 create_load_filter(&filter1,32,3,3,3);
 create_load_bias(&bias1,32);
-conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32);
+conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32,62,62,32);
 
 //LAYER #2 - ReLU 	[batch, 62, 62, 32]
-ReLU(&tensor2,&tensor2,batch_size,62,62,32);
+//ReLU(&tensor2,&tensor2,batch_size,62,62,32);
 
 //LAYER #3 - pooling 2,2 [batch, 32, 31, 31]
 create_load_output_tensor(&tensor3,batch_size,31,31,32);
@@ -521,10 +536,10 @@ max_pooling(&tensor2,&tensor3, batch_size, 62, 62, 32,2,2);
 create_load_output_tensor(&tensor4,batch_size,29,29,64);
 create_load_filter(&filter2,64,32,3,3);
 create_load_bias(&bias2,64);
-conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64);
+conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64,29,29,64);
 
 //LAYER #5 - ReLU
-ReLU(&tensor4,&tensor4,batch_size,29,29,64);
+//ReLU(&tensor4,&tensor4,batch_size,29,29,64);
 
 //LAYER #6 - pooling 2,2 [batch, 64, 14, 14]
 create_load_output_tensor(&tensor5,batch_size,14,14,64);
@@ -534,28 +549,28 @@ max_pooling(&tensor4,&tensor5, batch_size, 29, 29, 64,2,2);
 create_load_output_tensor(&tensor6,batch_size,12,12,128);
 create_load_filter(&filter3,128,64,3,3);
 create_load_bias(&bias3,128);
-conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128);
+conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128,12,12,128);
 
 //LAYER #8 - ReLU
-ReLU(&tensor6,&tensor6,batch_size,12,12,128);
+//ReLU(&tensor6,&tensor6,batch_size,12,12,128);
 
 //LAYER #9 - conv2d [batch, 12, 12, 128, 1, 1, 3, 3, 256]
 create_load_output_tensor(&tensor7,batch_size,10,10,256);
 create_load_filter(&filter4,256,128,3,3);
 create_load_bias(&bias4,256);
-conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256);
+conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256,10,10,256);
 
 //LAYER #10 - ReLU
-ReLU(&tensor7,&tensor7,batch_size,10,10,256);
+//ReLU(&tensor7,&tensor7,batch_size,10,10,256);
 
 //LAYER #11 - conv2d [batch, 10, 10, 256, 1, 1, 3, 3, 256]
 create_load_output_tensor(&tensor8,batch_size,8,8,256);
 create_load_filter(&filter5,256,256,3,3);
 create_load_bias(&bias5,256);
-conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256);
+conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256,8,8,256);
 
 //LAYER #12 - ReLU
-ReLU(&tensor8,&tensor8,batch_size,8,8,256);
+//ReLU(&tensor8,&tensor8,batch_size,8,8,256);
 
 //LAYER #13 - pooling 2,2 [batch, 256, 4, 4]
 create_load_output_tensor(&tensor9,batch_size,4,4,256);
