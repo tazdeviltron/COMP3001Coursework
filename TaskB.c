@@ -194,7 +194,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     double fl = compute_flops(flops,run_timeC);
     printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
     printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
-    addEdge(graph, 0, flops);
+    addEdge(graph, 0, fl);
     addEdge(graph, 1, ai);
     printf("Adjacency list representation:\n");
     printGraph(graph);
@@ -287,7 +287,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     double fl_fc = compute_flops(flops_fc, run_time);
     printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
     printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
-    addEdge(graph, 0, flops_fc);
+    addEdge(graph, 0, fl_fc);
     addEdge(graph, 1, ai_fc);
     printf("Adjacency list representation:\n");
     printGraph(graph);
