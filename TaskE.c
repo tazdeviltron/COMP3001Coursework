@@ -65,6 +65,10 @@ float *bias7;
 // For each applied optimization, provide the FLOPs value achieved both before and after its implementation. 
 // Create a graph showing FLOPs versus the applied optimizations, 
 // illustrating the FLOPs value of the original implementation, after vectorization, after register blocking, and so on.
+// //My Notes: Loop unroll transformation
+//Scalar replacement transformation
+//Use as less complex operations as possible
+//Inline Assembly -  __asm { //assembly code}
 //#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
 //#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
 // - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
