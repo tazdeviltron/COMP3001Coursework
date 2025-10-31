@@ -75,6 +75,56 @@ float *bias7;
 // b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
 //Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
 // Used online videos, stack overflow
+struct AdjListNode {
+    int dest;
+    struct AdjListNode* next;
+};
+struct Graph {
+    int V;
+    struct AdjListNode** array;
+};
+
+// Function to create a new adjacency list node
+struct AdjListNode* newAdjListNode(int dest) {
+    struct AdjListNode* newNode = malloc(sizeof(struct AdjListNode));
+    newNode->dest = dest;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Function to create a graph of V vertices
+struct Graph* createGraph(int V) {
+    struct Graph* graph = malloc(sizeof(struct Graph));
+    graph->V = V;
+    graph->array = calloc(V, sizeof(struct AdjListNode*));
+    return graph;
+}
+
+// Function to add an edge to an undirected graph
+void addEdge(struct Graph* graph, int src, int dest) {
+
+    // Add an edge from src to dest
+    struct AdjListNode* node = newAdjListNode(dest);
+    node->next = graph->array[src];
+    graph->array[src] = node;
+
+    // Since the graph is undirected, add an edge from dest to src
+    node = newAdjListNode(src);
+    node->next = graph->array[dest];
+    graph->array[dest] = node;
+}
+
+// Function to print the adjacency list
+void printGraph(struct Graph* graph) {
+    for (int i = 0; i < graph->V; i++) {
+        printf("%d:", i);
+        for (struct AdjListNode* cur = graph->array[i]; cur; cur = cur->next) {
+            printf(" %d", cur->dest);
+        }
+        printf("\n");
+    }
+}
+
 double compute_arithmetic_intensity(double flops, double bytes) {
     return flops / bytes;
 }
@@ -84,6 +134,8 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
+    int V = 5;
+    struct Graph* graph = createGraph(V);
 
     for (unsigned int b = 0; b < B; b++) { //batch
         for(unsigned int m = 0; m < M; m++){
@@ -121,17 +173,22 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                         (*out)[out_subscript] = temp + (*bias)[m];
                         
                     }
+             
                 }
-            }
-         }
+                double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+                double input_size = B * Yin * Xin * D;
+                double weight_size = M * MaskY * MaskX * D;
+                double output_size = B * Y * X * M;
+                double bytes = 4.0 * (input_size + weight_size + output_size);
+                double ai = compute_arithmetic_intensity(flops, bytes);
+                printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+                addEdge(graph, b, ai);
+        }
 
-    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
-    double input_size = B * Yin * Xin * D;
-    double weight_size = M * MaskY * MaskX * D;
-    double output_size = B * Y * X * M;
-    double bytes = 4.0 * (input_size + weight_size + output_size);
-    double ai = compute_arithmetic_intensity(flops, bytes);
-    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+         }
+    printf("Adjacency list representation:\n");
+    printGraph(graph);
+    return 0;
 /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
@@ -196,7 +253,8 @@ void max_pooling(float** input, float** output,
 
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
-   
+    int V = 5;
+    struct Graph* graph = createGraph(V);
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
         
@@ -211,9 +269,12 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
             double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
             double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
             printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
+            addEdge(graph, b, ai_fc);
         }
     }
-    
+    printf("Adjacency list representation:\n");
+    printGraph(graph);
+    return 0;
     /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
