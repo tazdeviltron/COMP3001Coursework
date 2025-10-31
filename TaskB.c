@@ -82,9 +82,8 @@ double compute_arithmetic_intensity(double flops, double bytes) {
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
 
     float temp;
-
-    unsigned int X=(Xin-(MaskX-StrideX)) / StrideX;
-    unsigned int Y=(Yin-(MaskY-StrideY)) / StrideY;
+    unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
+    unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
 
     for (unsigned int b = 0; b < B; b++) { //batch
         for(unsigned int m = 0; m < M; m++){
@@ -120,16 +119,19 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                                                                + m;
 
                         (*out)[out_subscript] = temp + (*bias)[m];
-                        double flops = 2.0 * batch_size * output_height * output_width * output_channels * kernel_height * kernel_width * input_channels;
-                        double bytes = 4.0 * (input_size + weight_size + output_size);
-                        double ai = compute_arithmetic_intensity(flops, bytes);
-                        printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+                        
                     }
                 }
             }
          }
 
-
+    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+    double input_size = B * Yin * Xin * D;
+    double weight_size = M * MaskY * MaskX * D;
+    double output_size = B * Y * X * M;
+    double bytes = 4.0 * (input_size + weight_size + output_size);
+    double ai = compute_arithmetic_intensity(flops, bytes);
+    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
 /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
@@ -513,11 +515,9 @@ cnn();
 
 run_time = (omp_get_wtime() - start_time);
 printf("\n\nThe model's latency is %f seconds\n",  run_time);
-
-double achieved_flops = flops / exec_time;
-printf("Conv2D FLOPs/sec: %.2f GFLOPs\n", achieved_flops / 1e9);
 double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
 double achieved_flops = flops / run_time;
+printf("Conv2D FLOPs/sec: %.2f GFLOPs\n", achieved_flops / 1e9);
 
 struct utsname sysinfo;
 uname(&sysinfo);
