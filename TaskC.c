@@ -128,10 +128,7 @@ double compute_flops(double flops , double time) {
 //Task C – Merge Conv2D layer with ReLU[12 Marks].
 // Apply loop merge optimization to Conv2d and ReLU layers.
 // This is a common optimization applied by modern optimization frameworks.
-//My Notes: Loop unroll transformation
-//Scalar replacement transformation
-//Use as less complex operations as possible
-//Inline Assembly -  __asm { //assembly code}
+
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M, float** input, float** output,
    int height, int width, int channels){
     double start_timeC, run_timeC;
