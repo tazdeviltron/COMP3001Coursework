@@ -175,20 +175,21 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                     }
              
                 }
-                double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
-                double input_size = B * Yin * Xin * D;
-                double weight_size = M * MaskY * MaskX * D;
-                double output_size = B * Y * X * M;
-                double bytes = 4.0 * (input_size + weight_size + output_size);
-                double ai = compute_arithmetic_intensity(flops, bytes);
-                printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
-                addEdge(graph, b, ai);
+                
         }
 
          }
+    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
+    double input_size = B * Yin * Xin * D;
+    double weight_size = M * MaskY * MaskX * D;
+    double output_size = B * Y * X * M;
+    double bytes = 4.0 * (input_size + weight_size + output_size);
+    double ai = compute_arithmetic_intensity(flops, bytes);
+    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
+    addEdge(graph, 0, ai);
     printf("Adjacency list representation:\n");
     printGraph(graph);
-    return 0;
+    //return 0;
 /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
@@ -265,16 +266,17 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
             }
             
             (*output)[b * output_dim + i] = sum;
-            double flops_fc = 2.0 * batch_size * input_dim * output_dim;
-            double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
-            double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
-            printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
-            addEdge(graph, b, ai_fc);
+            
         }
     }
+    double flops_fc = 2.0 * batch_size * input_dim * output_dim;
+    double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
+    double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
+    printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
+    addEdge(graph, b, ai_fc);
     printf("Adjacency list representation:\n");
     printGraph(graph);
-    return 0;
+   // return 0;
     /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
