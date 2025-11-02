@@ -236,8 +236,7 @@ void conv_2d(float** in, float** filter, float** bias, float** out, unsigned int
     struct Graph* graph = createGraph(V);
     start_timeC = omp_get_wtime();
     int index = 0;
-
-    for (unsigned int b = 0; b < B; b++) { //batch
+    for (int b = 0; b < batch_size; b++) {
         for (int h = 0; h < height; h++) {
             for (int w = 0; w < width; w++) {
                 for (int c = 0; c < channels; c++) {
@@ -248,49 +247,52 @@ void conv_2d(float** in, float** filter, float** bias, float** out, unsigned int
                     else
                         (*output)[index] = 0.0f;
 
-                    for (unsigned int m = 0; m < M; m++) {
-                        for (unsigned int y = 0; y < Y; y++) {			//Output height
-                            for (unsigned int x = 0; x < X; x++) {			//Output Width
-                                temp = 0.0f;
-                                for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
-                                    for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-                                        for (unsigned int d = 0; d < D; d++) {
-
-                                            unsigned int in_subscript = b * (Yin * Xin * D)
-                                                + (y * StrideY + off_y) * Xin * D
-                                                + (x * StrideX + off_x) * D
-                                                + d;
-                                            unsigned int filter_subscript = m * MaskY * MaskX * D
-                                                + off_y * MaskX * D
-                                                + off_x * D
-                                                + d;
-
-                                            float s = (*in)[in_subscript];
-                                            float w = (*filter)[filter_subscript];
-                                            temp += s * w;
-
-
-
-                                        }
-                                    }
-                                }
-
-                                unsigned int out_subscript = b * (M * Y * X) +
-                                    y * (M * X) +
-                                    x * M
-                                    + m;
-
-                                (*out)[out_subscript] = temp + (*bias)[m];
-
-                            }
-
-                        }
-
-                    }
-
                 }
             }
         }
+    }
+
+    for (unsigned int b = 0; b < B; b++) { //batch
+        for (unsigned int m = 0; m < M; m++) {
+            for (unsigned int y = 0; y < Y; y++) {			//Output height
+                for (unsigned int x = 0; x < X; x++) {			//Output Width
+                    temp = 0.0f;
+                    for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
+                        for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
+                            for (unsigned int d = 0; d < D; d++) {
+
+                                unsigned int in_subscript = b * (Yin * Xin * D)
+                                    + (y * StrideY + off_y) * Xin * D
+                                    + (x * StrideX + off_x) * D
+                                    + d;
+                                unsigned int filter_subscript = m * MaskY * MaskX * D
+                                    + off_y * MaskX * D
+                                    + off_x * D
+                                    + d;
+
+                                float s = (*in)[in_subscript];
+                                float w = (*filter)[filter_subscript];
+                                temp += s * w;
+
+
+
+                            }
+                        }
+                    }
+
+                    unsigned int out_subscript = b * (M * Y * X) +
+                        y * (M * X) +
+                        x * M
+                        + m;
+
+                    (*out)[out_subscript] = temp + (*bias)[m];
+
+                }
+
+            }
+
+        }
+
     }
     run_timeC = (omp_get_wtime() - start_timeC);
     double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;

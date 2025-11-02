@@ -153,6 +153,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                 }
             }
         }
+    }
         for (unsigned int b = 0; b < B; b++) { //batch
             for (unsigned int m = 0; m < M; m++) {
                 for (unsigned int y = 0; y < Y; y++) {			//Output height
