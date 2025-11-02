@@ -59,23 +59,7 @@ float *bias6;
 float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-//Task E – Optimize FC layers.
-// Drawing upon all optimization techniques learned in this module, you are to accelerate the first FC routine.
-// One required optimization is vectorization, using only the x86-64 SSE/SSE2/SSE4/AVX/AVX2 C/C++ intrinsics covered in this module.
-// For each applied optimization, provide the FLOPs value achieved both before and after its implementation. 
-// Create a graph showing FLOPs versus the applied optimizations, 
-// illustrating the FLOPs value of the original implementation, after vectorization, after register blocking, and so on.
-// //My Notes: Loop unroll transformation
-//Scalar replacement transformation
-//Use as less complex operations as possible
-//Inline Assembly -  __asm { //assembly code}
-//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
-//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
-// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
-// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
-// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
-//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
-// Used online videos, stack overflow
+
 struct AdjListNodes {
     int dest;
     struct AdjListNodes* next;
@@ -365,12 +349,87 @@ void max_pooling(float** input, float** output,
         }
     }
 }
+//Task E – Optimize FC layers.
+// Drawing upon all optimization techniques learned in this module, you are to accelerate the first FC routine.
+// One required optimization is vectorization, using only the x86-64 SSE/SSE2/SSE4/AVX/AVX2 C/C++ intrinsics covered in this module.
+// For each applied optimization, provide the FLOPs value achieved both before and after its implementation. 
+// Create a graph showing FLOPs versus the applied optimizations, 
+// illustrating the FLOPs value of the original implementation, after vectorization, after register blocking, and so on.
+// //My Notes: Loop unroll transformation
+//Scalar replacement transformation
+//Use as less complex operations as possible
+//Inline Assembly -  __asm { //assembly code}
+//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
+// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
+// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
+// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
+// Used online videos, stack overflow
+
+void FCOrignal(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
+    double start_time, run_time;
+    start_time = omp_get_wtime();
+    int V = 5;
+    struct Graph* graph = createGraph(V);
+    for (int b = 0; b < batch_size; b++) {
+        for (int i = 0; i < output_dim; i++) {
+
+            float sum = (*bias)[i];
+
+            for (int j = 0; j < input_dim; j++) {
+                sum += (*weights)[i * input_dim + j] * (*input)[b * input_dim + j];
+            }
+
+            (*output)[b * output_dim + i] = sum;
+
+        }
+    }
+    run_time = (omp_get_wtime() - start_time);
+    double flops_fc = 2.0 * batch_size * input_dim * output_dim;
+    double bytes_fc = 4.0 * (batch_size * input_dim + input_dim * output_dim + batch_size * output_dim);
+    double ai_fc = compute_arithmetic_intensity(flops_fc, bytes_fc);
+    double fl_fc = compute_flops(flops_fc, run_time);
+    printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
+    printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
+    //addEdge(graph, 0, fl_fc);
+    addPoint(graph, 1, ai_fc);
+    printf("Adjacency list representation:\n");
+    pGraph(graph);
+    // return 0;
+     /*
+     //In case you find the above implementation complicated, it is equivalent to the code below.
+     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
+
+     for (int b = 0; b < batch_size; b++) {
+         for (int i = 0; i < output_dim; i++) {
+             for (int j = 0; j < input_dim; j++) {
+                 output[b][i] += weights[i][j] * input[b][j] + bias[i];
+             }
+
+         }
+     }
+     */
+
+}
 
 
-
-
-//Task B here B1-Calculate the Arithmetic Intensity of conv2d and FC routines
-//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine, full info near conv2d
+//Task E – Optimize FC layers.
+// Drawing upon all optimization techniques learned in this module, you are to accelerate the first FC routine.
+// One required optimization is vectorization, using only the x86-64 SSE/SSE2/SSE4/AVX/AVX2 C/C++ intrinsics covered in this module.
+// For each applied optimization, provide the FLOPs value achieved both before and after its implementation. 
+// Create a graph showing FLOPs versus the applied optimizations, 
+// illustrating the FLOPs value of the original implementation, after vectorization, after register blocking, and so on.
+// //My Notes: Loop unroll transformation
+//Scalar replacement transformation
+//Use as less complex operations as possible
+//Inline Assembly -  __asm { //assembly code}
+//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
+//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
+// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
+// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
+// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
+//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
 
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
