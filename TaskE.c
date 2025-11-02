@@ -350,11 +350,11 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
                
             }
             // output[b][i] += weights[i][j] * input[b][j] + bias[i];
-            num5 = _mm256_permute2f128_ps(sumv, sumv, 1);
-             sumv = _mm256_add_ps(sumv, num5);
-             sumv = _mm256_hadd_ps(sumv, sumv);
-             sumv = _mm256_hadd_ps(sumv, sumv);
-             summax = _mm256_extractf128_ps(sumv, 0);
+            num5 = _mm256_permute2f128_ps(sum1, sum1, 1);
+             sum1 = _mm256_add_ps(sum1, num5);
+             sum1 = _mm256_hadd_ps(sum1, sum1);
+             sum1 = _mm256_hadd_ps(sum1, sum1);
+             summax = _mm256_extractf128_ps(sum1, 0);
 
              _mm_store_ss((float*)&output[b][i], summax);
             
