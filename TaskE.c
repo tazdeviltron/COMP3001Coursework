@@ -338,15 +338,15 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     __m128 lowsum, highsum, summax;
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
-             sumv = _mm256_setzero_ps(); //setting
+         //  sumv = _mm256_setzero_ps(); //setting
              sum1 = _mm256_setzero_ps();
             int j = 0; //loop unrolling 8
             for (; j <= input_dim - 8; j += 8) {
-                num1 = _mm256_loadu_ps(bias[i]);
+                //m1 = _mm256_loadu_ps(bias[i]);
                  input1 = _mm256_loadu_ps(&input[b][j]);
                  weight = _mm256_loadu_ps(&weights[i][j]);
-                 sumv = _mm256_fmadd_ps(num1, input1, sumv);
-                 sum1 = _mm256_fmadd_ps(sumv, weight, sum1);
+             //  sumv = _mm256_fmadd_ps(num1, input1, sumv);
+                 sum1 = _mm256_fmadd_ps(input1, weight, sum1);
 
             }
             // output[b][i] += weights[i][j] * input[b][j] + bias[i];
@@ -355,7 +355,14 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
              sum1 = _mm256_hadd_ps(sum1,sum1);
              sum1 = _mm256_hadd_ps(sum1, sum1);
              summax = _mm256_extractf128_ps(sum1, 0);
-             _mm_store_ss((float*)&output[b][i], summax);
+
+             float result;
+             _mm_store_ss(&result, summax);
+             output[b][i] = result + bias[i];
+             for (; j < input_dim; j++) {
+                 output[b][i] += input[b][j] * weights[i][j];
+             }
+     //      _mm_store_ss((float*)&output[b][i], summax);
 
          //   float sum = (*bias)[i];
 
