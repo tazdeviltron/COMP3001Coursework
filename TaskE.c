@@ -360,6 +360,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
 
             sum += (*bias)[i];
             (*output)[b * output_dim + i] = sum;
+            _mm_store_ss(sum);
 
          //   float sum = (*bias)[i];
 
