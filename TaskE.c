@@ -33,6 +33,9 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <immintrin.h>
+#include <xmmintrin.h>  
+#include <emmintrin.h>   
+#include <smmintrin.h>   
 
 float * tensor1; //pointer to tensor
 float * tensor2; //pointer to tensor 
