@@ -334,25 +334,27 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     //Scalar Replacement float w = weights[i * input_dim + j]?
     //Loop Unrolling by 4 or 8 
     //Vectorization with SSE/AVX Intrinsics Replace scalar sum+=; with vectorized operations
-    __m256 sumv, weight, input1, num1,num5;
+    __m256 sumv, weight, input1, num1, num5, sum1;
     __m128 lowsum, highsum, summax;
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
              sumv = _mm256_setzero_ps(); //setting
-
+             sum1 = _mm256_setzero_ps();
             int j = 0; //loop unrolling 8
             for (; j <= input_dim - 8; j += 8) {
-                 num1 = _mm256_loadu_ps(+bias[i]);
+                num1 = _mm256_loadu_ps(bias[i]);
                  input1 = _mm256_loadu_ps(&input[b][j]);
                  weight = _mm256_loadu_ps(&weights[i][j]);
-                sumv = _mm256_fmadd_ps(num1, input1, weight,sumv); 
+                 sumv = _mm256_fmadd_ps(num1, input1, sumv);
+                 sum1 = _mm256_fmadd_ps(sumv, weight, sum1);
+
             }
             // output[b][i] += weights[i][j] * input[b][j] + bias[i];
-             num5 = _mm256_permute2f128_ps(sumv,sumv,1);
-             sumv = _mm256_add_ps(sumv, num5);
-             sumv = _mm256_hadd_ps(sumv,sumv);
-             sumv = _mm256_hadd_ps(sumv, sumv);
-             summax = _mm256_extractf128_ps(sumv, 0);
+            num5 = _mm256_permute2f128_ps(sum1, sum1, 1);
+             sum1 = _mm256_add_ps(sum1, num5);
+             sum1 = _mm256_hadd_ps(sum1,sum1);
+             sum1 = _mm256_hadd_ps(sum1, sum1);
+             summax = _mm256_extractf128_ps(sum1, 0);
              _mm_store_ss((float*)&output[b][i], summax);
 
          //   float sum = (*bias)[i];
