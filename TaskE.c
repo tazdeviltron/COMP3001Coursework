@@ -30,6 +30,8 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <sys/utsname.h>
+#include <unistd.h>
 #include <immintrin.h>
 
 float * tensor1; //pointer to tensor
