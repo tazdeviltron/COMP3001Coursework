@@ -334,20 +334,22 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     //Scalar Replacement float w = weights[i * input_dim + j]?
     //Loop Unrolling by 4 or 8 
     //Vectorization with SSE/AVX Intrinsics Replace scalar sum+=; with vectorized operations
+    __m256 sumv, weight, input1;
+    __m128 lowsum, highsum, summax;
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
-            __m256 sumv = _mm256_setzero_ps(); //setting
+             sumv = _mm256_setzero_ps(); //setting
 
             int j = 0; //loop unrolling 8
             for (; j <= input_dim - 8; j += 8) {
-                __m256 weight = _mm256_loadu_ps(&(*weights)[i * input_dim + j]);
-                __m256 input = _mm256_loadu_ps(&(*input)[b * input_dim + j]);
+                 weight = _mm256_loadu_ps(&(*weights)[i * input_dim + j]);
+                 input1 = _mm256_loadu_ps(&(*input)[b * input_dim + j]);
                 sumv = _mm256_fmadd_ps(weight, input, sumv); 
             }
            
-            __m128 lowsum = _mm256_castps256_ps128(sumv);
-            __m128 highsum = _mm256_extractf128_ps(sumv, 1);
-            __m128 summax = _mm_add_ps(lowsum, highsum);
+             lowsum = _mm256_castps256_ps128(sumv);
+             highsum = _mm256_extractf128_ps(sumv, 1);
+             summax = _mm_add_ps(lowsum, highsum);
             summax = _mm_hadd_ps(summax, summax);
             float sum = _mm_cvtss_f32(summax);
 
