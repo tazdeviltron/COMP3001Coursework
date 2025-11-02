@@ -334,7 +334,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     //Scalar Replacement float w = weights[i * input_dim + j]?
     //Loop Unrolling by 4 or 8 
     //Vectorization with SSE/AVX Intrinsics Replace scalar sum+=; with vectorized operations
-    __m256 sumv, weight, input1;
+    __m256 sumv, weight, input1, num1,num5;
     __m128 lowsum, highsum, summax;
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
@@ -342,25 +342,18 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
 
             int j = 0; //loop unrolling 8
             for (; j <= input_dim - 8; j += 8) {
-                 weight = _mm256_loadu_ps(&(*weights)[i * input_dim + j]);
-                 input1 = _mm256_loadu_ps(&(input)[b * input_dim + j]);
-                sumv = _mm256_fmadd_ps(weight, input1, sumv); 
+                 num1 = _mm256_loadu_ps(+bias[i]);
+                 input1 = _mm256_loadu_ps(&input[b][j]);
+                 weight = _mm256_loadu_ps(&weights[i][j]);
+                sumv = _mm256_fmadd_ps(num1, input1, weight,sumv); 
             }
-           
-             lowsum = _mm256_castps256_ps128(sumv);
-             highsum = _mm256_extractf128_ps(sumv, 1);
-             summax = _mm_add_ps(lowsum, highsum);
-            summax = _mm_hadd_ps(summax, summax);
-            float sum = _mm_cvtss_f32(summax);
-
-            
-            for (; j < input_dim; ++j) {
-                sum += (*weights)[i * input_dim + j] * (*input)[b * input_dim + j];
-            }
-
-            sum += (*bias)[i];
-            (*output)[b * output_dim + i] = sum;
-            _mm_store_ss(sum);
+            // output[b][i] += weights[i][j] * input[b][j] + bias[i];
+             num5 = _mm256_permute2f128_ps(sumv,sumv,1);
+             sumv = _mm256_add_ps(sumv, num5);
+             sumv = _mm256_hadd_ps(sumv,sumv);
+             sumv = _mm256_hadd_ps(sumv, sumv);
+             summax = _mm256_extractf128_ps(sumv, 0);
+             _mm_store_ss((float*)&output[b][i], summax);
 
          //   float sum = (*bias)[i];
 
