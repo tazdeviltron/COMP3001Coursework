@@ -129,7 +129,7 @@ double compute_flops(double flops , double time) {
 // Apply loop merge optimization to Conv2d and ReLU layers.
 // This is a common optimization applied by modern optimization frameworks.
 
-void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M, float** input, float** output,
+void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M, float** input, float** output, int batch_size,
    int height, int width, int channels){
     double start_timeC, run_timeC;
     float temp;
@@ -513,7 +513,7 @@ create_load_input_tensor(&tensor1,batch_size,64,64,3,1,1,3,3,32);
 create_load_output_tensor(&tensor2,batch_size,62,62,32);
 create_load_filter(&filter1,32,3,3,3);
 create_load_bias(&bias1,32);
-conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32,62,62,32);
+conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32,&tensor2,&tensor2,batch_size,62,62,32);
 
 //LAYER #2 - ReLU 	[batch, 62, 62, 32]
 //ReLU(&tensor2,&tensor2,batch_size,62,62,32);
@@ -526,7 +526,7 @@ max_pooling(&tensor2,&tensor3, batch_size, 62, 62, 32,2,2);
 create_load_output_tensor(&tensor4,batch_size,29,29,64);
 create_load_filter(&filter2,64,32,3,3);
 create_load_bias(&bias2,64);
-conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64,29,29,64);
+conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64, &tensor4, &tensor4, batch_size,29,29,64);
 
 //LAYER #5 - ReLU
 //ReLU(&tensor4,&tensor4,batch_size,29,29,64);
@@ -539,7 +539,7 @@ max_pooling(&tensor4,&tensor5, batch_size, 29, 29, 64,2,2);
 create_load_output_tensor(&tensor6,batch_size,12,12,128);
 create_load_filter(&filter3,128,64,3,3);
 create_load_bias(&bias3,128);
-conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128,12,12,128);
+conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128, &tensor6, &tensor6, batch_size,12,12,128);
 
 //LAYER #8 - ReLU
 //ReLU(&tensor6,&tensor6,batch_size,12,12,128);
@@ -548,7 +548,7 @@ conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128,12,12,
 create_load_output_tensor(&tensor7,batch_size,10,10,256);
 create_load_filter(&filter4,256,128,3,3);
 create_load_bias(&bias4,256);
-conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256,10,10,256);
+conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256, &tensor7, &tensor7, batch_size,10,10,256);
 
 //LAYER #10 - ReLU
 //ReLU(&tensor7,&tensor7,batch_size,10,10,256);
@@ -557,7 +557,7 @@ conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256,10,10
 create_load_output_tensor(&tensor8,batch_size,8,8,256);
 create_load_filter(&filter5,256,256,3,3);
 create_load_bias(&bias5,256);
-conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256,8,8,256);
+conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256, &tensor8, &tensor8, batch_size,8,8,256);
 
 //LAYER #12 - ReLU
 //ReLU(&tensor8,&tensor8,batch_size,8,8,256);
