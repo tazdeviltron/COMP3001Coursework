@@ -338,7 +338,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     __m128 lowsum, highsum, summax;
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
-         //  sumv = _mm256_setzero_ps(); //setting
+           sumv = _mm256_setzero_ps(); //setting
              sum1 = _mm256_setzero_ps();
             int j = 0; //loop unrolling 8
             for (; j <= input_dim - 8; j += 8) {
@@ -347,7 +347,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
                  weight = _mm256_loadu_ps(&weights[i][j]);
              //  sumv = _mm256_fmadd_ps(num1, input1, sumv);
                  sum1 = _mm256_fmadd_ps(input1, weight, sum1);
-                 sumv = _mm256_fmadd_ps(num1, sum1);
+                 sumv = _mm256_fmadd_ps(num1, sum1, sumv);
             }
             // output[b][i] += weights[i][j] * input[b][j] + bias[i];
             num5 = _mm256_permute2f128_ps(sumv, sumv, 1);
