@@ -30,7 +30,7 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-
+#include <immintrin.h>
 
 float * tensor1; //pointer to tensor
 float * tensor2; //pointer to tensor 
@@ -209,114 +209,6 @@ void conv_2dOriginal(float** in, float** filter, float** bias, float** out, unsi
 
 }
 
-//Finish Task C and add here
-void conv_2d(float** in, float** filter, float** bias, float** out, unsigned int B, unsigned int Yin, unsigned int Xin, unsigned int D, unsigned int StrideY, unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M, float** input, float** output, int batch_size,
-    int height, int width, int channels) {
-    double start_timeC, run_timeC;
-    float temp;
-    unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
-    unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
-    int V = 5;
-    struct Graph* graph = createGraph(V);
-    start_timeC = omp_get_wtime();
-    int index = 0;
-    for (int b = 0; b < batch_size; b++) {
-        for (int h = 0; h < height; h++) {
-            for (int w = 0; w < width; w++) {
-                for (int c = 0; c < channels; c++) {
-                    index = ((b * height + h) * width + w) * channels + c;
-
-                    if ((*input)[index] > 0)
-                        (*output)[index] = (*input)[index];
-                    else
-                        (*output)[index] = 0.0f;
-
-                }
-            }
-        }
-    }
-
-    for (unsigned int b = 0; b < B; b++) { //batch
-        for (unsigned int m = 0; m < M; m++) {
-            for (unsigned int y = 0; y < Y; y++) {			//Output height
-                for (unsigned int x = 0; x < X; x++) {			//Output Width
-                    temp = 0.0f;
-                    for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
-                        for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-                            for (unsigned int d = 0; d < D; d++) {
-
-                                unsigned int in_subscript = b * (Yin * Xin * D)
-                                    + (y * StrideY + off_y) * Xin * D
-                                    + (x * StrideX + off_x) * D
-                                    + d;
-                                unsigned int filter_subscript = m * MaskY * MaskX * D
-                                    + off_y * MaskX * D
-                                    + off_x * D
-                                    + d;
-
-                                float s = (*in)[in_subscript];
-                                float w = (*filter)[filter_subscript];
-                                temp += s * w;
-
-
-
-                            }
-                        }
-                    }
-
-                    unsigned int out_subscript = b * (M * Y * X) +
-                        y * (M * X) +
-                        x * M
-                        + m;
-
-                    (*out)[out_subscript] = temp + (*bias)[m];
-
-                }
-
-            }
-
-        }
-
-    }
-    run_timeC = (omp_get_wtime() - start_timeC);
-    double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
-    double input_size = B * Yin * Xin * D;
-    double weight_size = M * MaskY * MaskX * D;
-    double output_size = B * Y * X * M;
-    double bytes = 4.0 * (input_size + weight_size + output_size);
-    double ai = compute_arithmetic_intensity(flops, bytes);
-    double fl = compute_flops(flops, run_timeC);
-    printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
-    printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
-    // addEdge(graph, 0, fl);
-    addPoint(graph, 1, ai);
-    printf("Adjacency list representation:\n");
-    pGraph(graph);
-    //return 0;
-/*
-    //In case you find the above implementation complicated, it is equivalent to the code below.
-    //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
-
-    for (unsigned int b = 0; b < B; b++) {
-        for(unsigned int m = 0; m < M; m++){
-                for (unsigned int y = 0; y < Y; y++) {
-                    for (unsigned int x = 0; x < X; x++) {
-                        temp = 0.0f;
-                        for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
-                            for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-                                for(unsigned int d = 0; d < D; d++) {
-                                    temp += in[b][y][x][d] * filter[m][off_y][off_x][d];
-                                }
-                            }
-                        }
-                        out[b][y][x][m] = temp + bias[m];
-                    }
-                }
-            }
-        }
-    */
-
-}
 
 
 
@@ -437,16 +329,41 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     start_time = omp_get_wtime();
     int V = 5;
     struct Graph* graph = createGraph(V);
+    //Scalar Replacement float w = weights[i * input_dim + j]?
+    //Loop Unrolling by 4 or 8 
+    //Vectorization with SSE/AVX Intrinsics Replace scalar sum+=; with vectorized operations
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
+            __m256 sumv = _mm256_setzero_ps(); //setting
 
-            float sum = (*bias)[i];
+            int j = 0; //loop unrolling 8
+            for (; j <= input_dim - 8; j += 8) {
+                __m256 weight = _mm256_loadu_ps(&(*weights)[i * input_dim + j]);
+                __m256 input = _mm256_loadu_ps(&(*input)[b * input_dim + j]);
+                sumv = _mm256_fmadd_ps(weight, input, sumv); 
+            }
+           
+            __m128 lowsum = _mm256_castps256_ps128(sumv);
+            __m128 highsum = _mm256_extractf128_ps(sumv, 1);
+            __m128 summax = _mm_add_ps(lowsum, highsum);
+            summax = _mm_hadd_ps(summax, summax);
+            float sum = _mm_cvtss_f32(summax);
 
-            for (int j = 0; j < input_dim; j++) {
+            
+            for (; j < input_dim; ++j) {
                 sum += (*weights)[i * input_dim + j] * (*input)[b * input_dim + j];
             }
 
+            sum += (*bias)[i];
             (*output)[b * output_dim + i] = sum;
+
+         //   float sum = (*bias)[i];
+
+          //  for (int j = 0; j < input_dim; j++) {
+            //    sum += (*weights)[i * input_dim + j] * (*input)[b * input_dim + j];
+            //}
+
+            //(*output)[b * output_dim + i] = sum;
 
         }
     }
@@ -676,7 +593,7 @@ create_load_output_tensor(&tensor2,batch_size,62,62,32);
 create_load_filter(&filter1,32,3,3,3);
 create_load_bias(&bias1,32);
 conv_2dOriginal(&tensor1, &filter1, &bias1, &tensor2, batch_size, 64, 64, 3, 1, 1, 3, 3, 32);
-conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32, &tensor2, &tensor2, batch_size,62,62,32);
+//conv_2d(&tensor1,&filter1,&bias1,&tensor2,batch_size,64,64,3,1,1,3,3,32, &tensor2, &tensor2, batch_size,62,62,32);
 
 //LAYER #2 - ReLU 	[batch, 62, 62, 32]
 ReLU(&tensor2,&tensor2,batch_size,62,62,32);
@@ -690,7 +607,7 @@ create_load_output_tensor(&tensor4,batch_size,29,29,64);
 create_load_filter(&filter2,64,32,3,3);
 create_load_bias(&bias2,64);
 conv_2dOriginal(&tensor3, &filter2, &bias2, &tensor4, batch_size, 31, 31, 32, 1, 1, 3, 3, 64);
-conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64,&tensor4, &tensor4, batch_size,29,29,64);
+//conv_2d(&tensor3,&filter2,&bias2,&tensor4,batch_size,31,31,32,1,1,3,3,64,&tensor4, &tensor4, batch_size,29,29,64);
 
 //LAYER #5 - ReLU
 ReLU(&tensor4,&tensor4,batch_size,29,29,64);
@@ -704,7 +621,7 @@ create_load_output_tensor(&tensor6,batch_size,12,12,128);
 create_load_filter(&filter3,128,64,3,3);
 create_load_bias(&bias3,128);
 conv_2dOriginal(&tensor5, &filter3, &bias3, &tensor6, batch_size, 14, 14, 64, 1, 1, 3, 3, 128);
-conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128, &tensor6, &tensor6, batch_size ,12,12,128);
+//conv_2d(&tensor5,&filter3,&bias3,&tensor6,batch_size,14,14,64,1,1,3,3,128, &tensor6, &tensor6, batch_size ,12,12,128);
 
 //LAYER #8 - ReLU
 ReLU(&tensor6,&tensor6,batch_size,12,12,128);
@@ -714,7 +631,7 @@ create_load_output_tensor(&tensor7,batch_size,10,10,256);
 create_load_filter(&filter4,256,128,3,3);
 create_load_bias(&bias4,256);
 conv_2dOriginal(&tensor6, &filter4, &bias4, &tensor7, batch_size, 12, 12, 128, 1, 1, 3, 3, 256);
-conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256, &tensor7, &tensor7, batch_size ,10,10,256);
+//conv_2d(&tensor6,&filter4,&bias4,&tensor7,batch_size,12,12,128,1,1,3,3,256, &tensor7, &tensor7, batch_size ,10,10,256);
 
 //LAYER #10 - ReLU
 ReLU(&tensor7,&tensor7,batch_size,10,10,256);
@@ -724,7 +641,7 @@ create_load_output_tensor(&tensor8,batch_size,8,8,256);
 create_load_filter(&filter5,256,256,3,3);
 create_load_bias(&bias5,256);
 conv_2dOriginal(&tensor7, &filter5, &bias5, &tensor8, batch_size, 10, 10, 256, 1, 1, 3, 3, 256);
-conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256, &tensor8, &tensor8, batch_size , 8,8,256);
+//conv_2d(&tensor7,&filter5,&bias5,&tensor8,batch_size,10,10,256,1,1,3,3,256, &tensor8, &tensor8, batch_size , 8,8,256);
 
 //LAYER #12 - ReLU
 ReLU(&tensor8,&tensor8,batch_size,8,8,256);
@@ -740,6 +657,7 @@ max_pooling(&tensor8,&tensor9, batch_size, 8, 8, 256,2,2);
 create_load_output_tensor(&tensor10,batch_size,1,1,1024);
 create_load_filter(&filter6,4096,1024,1,1);
 create_load_bias(&bias6,1024);
+FCOrignal(&tensor9, &filter6, &bias6, &tensor10, batch_size, 4096, 1024);
 FC(&tensor9, &filter6, &bias6, &tensor10, batch_size, 4096, 1024);
 
 //LAYER #16 - 2d ReLU [batch, 1024]
@@ -749,6 +667,7 @@ ReLU(&tensor10,&tensor10,batch_size,1,1,1024);
 create_load_output_tensor(&tensor11,batch_size,1,1,10);
 create_load_filter(&filter7,1024,10,1,1);
 create_load_bias(&bias7,10);
+FCOrignal(&tensor10, &filter7, &bias7, &tensor11, batch_size, 1024, 10);
 FC(&tensor10, &filter7, &bias7, &tensor11, batch_size, 1024, 10);
 
 deallocate_memory();
