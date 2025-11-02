@@ -343,8 +343,8 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
             int j = 0; //loop unrolling 8
             for (; j <= input_dim - 8; j += 8) {
                  weight = _mm256_loadu_ps(&(*weights)[i * input_dim + j]);
-                 input1 = _mm256_loadu_ps(&(*input)[b * input_dim + j]);
-                sumv = _mm256_fmadd_ps(weight, input, sumv); 
+                 input1 = _mm256_loadu_ps(&(input)[b * input_dim + j]);
+                sumv = _mm256_fmadd_ps(weight, input1, sumv); 
             }
            
              lowsum = _mm256_castps256_ps128(sumv);
