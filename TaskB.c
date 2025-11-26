@@ -62,62 +62,15 @@ float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-//#B1-Calculate the Arithmetic Intensity of conv2d and FC routines
-//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine 
-// - The FLOPs value is given by FLOP.count / ex.time.in.seconds. You need to provide:
-// a) the attainable FLOPs value for each routine separately (create a graph of FLOPs vs. layer), 
-// b) the lines of code that calculate the FLOPs values, and c) the system’s information (CPU and DDR specs and OS) 
-//Tip. To get an accurate FLOPs value, you need an accurate execution time value. 
+//Task B – CUDA Optimization [30 Marks]. Based on the provided cnn.c file and CUDA code examples,
+// develop CUDA code to efficiently run the conv2d and FC layers on the GPU. 
+// The remaining layers are to be executed on the CPU. Please note that multiple valid solutions may exist for this implementation.
 // Used online videos, stack overflow
-struct AdjListNodes {
-    int dest;
-    struct AdjListNodes* next;
-};
-struct Graph {
-    int V;
-    struct AdjListNodes** array;
-};
-
-// Function to create a new adjacency list node
-struct AdjListNodes* newAdjListNode(int dest) {
-    struct AdjListNodes* newNode = malloc(sizeof(struct AdjListNodes));
-    newNode->dest = dest;
-    newNode->next = NULL;
-    return newNode;
-}
-
-// Function to create a graph of V vertices
-struct Graph* createGraph(int V) {
-    struct Graph* graph = malloc(sizeof(struct Graph));
-    graph->V = V;
-    graph->array = calloc(V, sizeof(struct AdjListNodes*));
-    return graph;
-}
-
-// Function to add point to an undirected graph
-void addPoint(struct Graph* graph, int src, int dest) {
-
-    // Add an edge from src to dest
-    struct AdjListNodes* node = newAdjListNode(dest);
-    node->next = graph->array[src];
-    graph->array[src] = node;
-
-    // Since the graph is undirected, add an edge from dest to src
-    node = newAdjListNode(src);
-    node->next = graph->array[dest];
-    graph->array[dest] = node;
-}
-
-// Function to print the adjacency list
-void pGraph(struct Graph* graph) {
-    for (int i = 0; i < graph->V; i++) {
-        printf("%d:", i);
-        for (struct AdjListNodes* cur = graph->array[i]; cur; cur = cur->next) {
-            printf(" %d", cur->dest);
-        }
-        printf("\n");
-    }
-}
+//Task D – Performance Evaluation of Conv2D Implementations on Lovelace Supercomputer[10 Marks].
+// In this task, you will evaluate the performance of your Conv2D implementations from Task A, Task B, and Task C
+// by measuring the FLOP / s(floating - point operations per second) achieved on the Lovelace supercomputer.
+// You must report the FLOP / s achieved by each Conv2D layer in your implementation when B = 1 and when B = 40. 
+// Create a graph that compares the performance(FLOP / s) of the three tasks across all Conv2D layers when B = 1 and another when B = 40.
 
 double compute_arithmetic_intensity(double flops, double bytes) {
     return flops/ bytes;
@@ -125,14 +78,17 @@ double compute_arithmetic_intensity(double flops, double bytes) {
 double compute_flops(double flops , double time) {
     return flops/ time;
 }
-
+//Task B here Conv2D
+//CUDA Optimization[30 Marks].Based on the provided cnn.c file and CUDA code examples,
+// develop CUDA code to efficiently run the conv2d and FC layers on the GPU. 
+// The remaining layers are to be executed on the CPU. Please note that multiple valid solutions may exist for this implementation.
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
     double start_timeC, run_timeC;
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
-    int V = 5;
-    struct Graph* graph = createGraph(V);
+   
+   
     start_timeC = omp_get_wtime();
 
     for (unsigned int b = 0; b < B; b++) { //batch
@@ -188,9 +144,9 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     printf("Conv2D layer FLOPs: %.2f FLOPs/time\n", fl);
     printf("Conv2D Layer AI: %.2f FLOPs/byte\n", ai);
    // addEdge(graph, 0, fl);
-    addPoint(graph, 1, ai);
-    printf("Adjacency list representation:\n");
-    pGraph(graph);
+   // addPoint(graph, 1, ai);
+   // printf("Adjacency list representation:\n");
+    // pGraph(graph);
     //return 0;
 /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
@@ -251,15 +207,16 @@ void max_pooling(float** input, float** output,
 }
 
 
-//Task B here B1-Calculate the Arithmetic Intensity of conv2d and FC routines
-//#B2-Calculate the FLOPs values achieved by each conv2d() and FC() routine, full info near conv2d
+//Task B here FC 
+// CUDA Optimization[30 Marks].Based on the provided cnn.c file and CUDA code examples,
+// develop CUDA code to efficiently run the conv2d and FC layers on the GPU. 
+// The remaining layers are to be executed on the CPU. Please note that multiple valid solutions may exist for this implementation.
 
 // Fully connected layer function - the same weights array is used for each batch
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
     double start_time, run_time;
     start_time = omp_get_wtime();
-    int V = 5;
-    struct Graph* graph = createGraph(V);
+   
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
         
@@ -281,9 +238,9 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     printf("FC Layer FLOPs:%.2f FLOPs/time\n", fl_fc);
     printf("FC Layer AI: %.2f FLOPs/byte\n", ai_fc);
     //addEdge(graph, 0, fl_fc);
-    addPoint(graph, 1, ai_fc);
-    printf("Adjacency list representation:\n");
-    pGraph(graph);
+   // addPoint(graph, 1, ai_fc);
+   // printf("Adjacency list representation:\n");
+   // pGraph(graph);
    // return 0;
     /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
