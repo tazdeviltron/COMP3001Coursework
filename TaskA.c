@@ -66,6 +66,7 @@ float *bias7;
 // exclusively utilizing the OpenMP parallel programming framework.
 // Other optimization techniques are not to be employed[20 Marks].
 // The Openmp clauses that need to be used are the following : pragma omp parallel, omp for, reduction, private, shared, omp simd, aligned.
+// hint: top marks: The code delivered contains both multithreaded and vectorized code using OpenMP pragmas.
 // Used online videos, stack overflow
 //Task D – Performance Evaluation of Conv2D Implementations on Lovelace Supercomputer[10 Marks].
 // In this task, you will evaluate the performance of your Conv2D implementations from Task A, Task B, and Task C
