@@ -32,7 +32,15 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <math.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <time.h>
 
+//note: input size #define N = to what type of implementation will be using for this coursework easy implementation only 100. 
+//note: if doing grid implementation you need #define MaxNumberOfBlocksPerDIM to 65535 for one dimension only, then #define MaxNumberOfThreads 1024. 
 
 float * tensor1; //pointer to tensor
 float * tensor2; //pointer to tensor 
