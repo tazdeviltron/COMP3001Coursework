@@ -39,7 +39,9 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <math.h>
 #include <time.h>
 
-//note: input size #define N = to what type of implementation will be using for this coursework easy implementation only 100. 
+//note: input size #define N = to what type of implementation will be using for this coursework easy implementation only 100, for 2d array 3000. 
+//note: max array size is 3d. So 3 loops code.
+//note: For array and grid, I need to have a global int for the loops, for example int A[N][N]; then __device__int device_a[N][N]; 
 //note: if doing grid implementation you need #define MaxNumberOfBlocksPerDIM to 65535 for one dimension only, then #define MaxNumberOfThreads 1024. 
 
 float * tensor1; //pointer to tensor

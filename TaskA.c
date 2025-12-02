@@ -97,6 +97,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                         temp = 0.0f;
                         for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
                             for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
+								#pragma omp simd //vectorize, might need to add extra
                                 for(unsigned int d = 0; d < D; d++) {
 
                                     unsigned int in_subscript = b * (Yin * Xin * D)
@@ -447,7 +448,7 @@ free(bias7);
 
 void cnn(){
 
-unsigned int batch_size=32;//INPUT
+unsigned int batch_size=32;//INPUT 1 and 40 for task d change it to them
 
 //LAYER #1 conv2d [batch, 64, 64, 3, 1, 1, 3, 3, 32]
 create_load_input_tensor(&tensor1,batch_size,64,64,3,1,1,3,3,32);
