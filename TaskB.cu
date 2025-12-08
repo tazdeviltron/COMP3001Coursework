@@ -40,7 +40,7 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <time.h>
 
 //note: input size #define N = to what type of implementation will be using for this coursework easy implementation only 100, for 2d array 3000. 
-//note: max array size is 3d. So 3 loops code.
+//note: max array size is 3d. So 3 loops code max to parallelize.
 //note: For array and grid, I need to have a global int for the loops, for example int A[N][N]; then __device__int device_a[N][N]; 
 //note: if doing grid implementation you need #define MaxNumberOfBlocksPerDIM to 65535 for one dimension only, then #define MaxNumberOfThreads 1024. 
 
@@ -226,7 +226,7 @@ void max_pooling(float** input, float** output,
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
     double start_time, run_time;
     start_time = omp_get_wtime();
-   
+   // can use 3d 
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
         
@@ -255,7 +255,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     /*
     //In case you find the above implementation complicated, it is equivalent to the code below. 
     //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
-    
+    // can use 3d, maybe 1d inplementation? 
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {  
             for (int j = 0; j < input_dim; j++) {
