@@ -62,11 +62,11 @@ float *bias7;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-// Task A – OpenMP Optimization.Parallelize and vectorize all routines within the cnn() function,
-// exclusively utilizing the OpenMP parallel programming framework.
-// Other optimization techniques are not to be employed[20 Marks].
-// The Openmp clauses that need to be used are the following : pragma omp parallel, omp for, reduction, private, shared, omp simd, aligned.
-// hint: top marks: The code delivered contains both multithreaded and vectorized code using OpenMP pragmas.
+// Task C – CPU Optimization [25 Marks]. 
+// Drawing upon all optimization techniques learned in this module, you are to accelerate the ‘Conv2d()’ routine on the CPU.
+// Note that there is no single solution. 
+// marking 12 to 19: all the following optimizations are effeciently applied: vectorization dloop is vectorized, register blocking, parellelization.
+// marking top marks: provided the right AVX intrinsics applied right, mloop is vectorized, loop tiling is efficiently applied.
 // Used online videos, stack overflow
 //Task D – Performance Evaluation of Conv2D Implementations on Lovelace Supercomputer[10 Marks].
 // In this task, you will evaluate the performance of your Conv2D implementations from Task A, Task B, and Task C
@@ -82,6 +82,7 @@ double compute_flops(double flops , double time) {
     return flops/ time;
 }
 
+// Task C – is here
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
     double start_timeC, run_timeC;
     float temp;
@@ -190,7 +191,6 @@ void max_pooling(float** input, float** output,
 
                     float max_val = FLT_MIN;
                     for (int ph = 0; ph < pool_size; ph++) {
-                         #pragma omp simd 
                         for (int pw = 0; pw < pool_size; pw++) {
                             int h = oh * stride + ph;
                             int w = ow * stride + pw;
@@ -218,7 +218,6 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
    
 #pragma omp parallel for private(b,i,j)
     for (int b = 0; b < batch_size; b++) {
-          #pragma omp simd 
         for (int i = 0; i < output_dim; i++) {
         
             float sum = (*bias)[i];
@@ -268,7 +267,6 @@ void ReLU(float** input, float** output,
     for (int b = 0; b < batch_size; b++) {
         for (int h = 0; h < height; h++) {
             for (int w = 0; w < width; w++) {
-                 #pragma omp simd 
                 for (int c = 0; c < channels; c++) {
                     index = ((b * height + h) * width + w) * channels + c;
                     
@@ -311,9 +309,8 @@ void create_load_bias(float** bias, const unsigned int M){
         printf("\nerror with malloc allocating bias array");
         exit(EXIT_FAILURE);
     }
-    #pragma omp parallel for simd  // this might be a bit unnecessary
+#pragma omp parallel for private(i)
     for (unsigned int i=0; i<M; i++){
-         
         (*bias)[i]=(float) (i % 99) + 0.41f;
         //*(bias_array_FP+i)=((float) (rand() % 5)) + 1;
         //  *(bias_array_FP+i)=0.0f;
@@ -337,12 +334,11 @@ void create_load_filter(float** filter, const unsigned int M, const unsigned int
     }
 
 
-#pragma omp parallel for private(m,y,x,d,offset)
+#pragma omp parallel for private(m,y,x,d)
     //read the filter array
     for (m=0;m<M;m++)
         for (y=0;y<MaskY;y++)
             for (x=0;x<MaskX;x++){
-                 #pragma omp simd 
                 //printf("\n");
                 for (d=0;d<D;d++){
                     offset=m * MaskY*MaskX*D +
@@ -376,7 +372,6 @@ void create_load_input_tensor(float** input, unsigned int B,unsigned int Yin, un
     for (int b = 0; b < B; b++)
         for (int y = 0; y < Yin; y++)
             for (int x = 0; x < Xin; x ++)
-                   #pragma omp simd 
                 for (unsigned int d = 0; d < D; d++) {
                     in_subscript = (unsigned long long int) b * (Yin * Xin * D)
                                    + (y ) * Xin * D
@@ -406,7 +401,6 @@ void create_load_output_tensor(float** output, unsigned int B,unsigned int Y, un
     for (int b = 0; b < B; b++)
         for (int y = 0; y < Y; y++)
             for (int x = 0; x < X; x ++)
-                 #pragma omp simd 
                 for (unsigned int m = 0; m < M; m++) {
                     out_subscript = (unsigned long long int) b * (M * Y * X) +
                                     y * (M * X) +
