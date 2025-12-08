@@ -43,6 +43,7 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 //note: max array size is 3d. So 3 loops code max to parallelize.
 //note: For array and grid, I need to have a global int for the loops, for example int A[N][N]; then __device__int device_a[N][N]; 
 //note: if doing grid implementation you need #define MaxNumberOfBlocksPerDIM to 65535 for one dimension only, then #define MaxNumberOfThreads 1024. 
+#define N = 100
 #define MaxNumberOfBlocksPerDIM 65535
 #define MaxNumberOfThreads 1024
 float * tensor1; //pointer to tensor
