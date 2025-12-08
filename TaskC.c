@@ -82,7 +82,7 @@ double compute_flops(double flops , double time) {
     return flops/ time;
 }
 
-// Task C – is here
+// Task C – is here use AVX vectorized here
 void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned int B,unsigned int Yin, unsigned int Xin,unsigned int D,unsigned int StrideY,unsigned int StrideX, unsigned int MaskY, unsigned int MaskX, unsigned int M){
     double start_timeC, run_timeC;
     float temp;
@@ -90,7 +90,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
     
     start_timeC = omp_get_wtime();
-#pragma omp parallel for private(b,m,y,x,off_y,off_x,d)
+
     for (unsigned int b = 0; b < B; b++) { //batch
         for(unsigned int m = 0; m < M; m++){
                 for (unsigned int y = 0; y < Y; y++) {			//Output height
@@ -98,7 +98,7 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
                         temp = 0.0f;
                         for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
                             for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-								#pragma omp simd //vectorize, might need to add extra
+								
                                 for(unsigned int d = 0; d < D; d++) {
 
                                     unsigned int in_subscript = b * (Yin * Xin * D)
@@ -183,7 +183,7 @@ void max_pooling(float** input, float** output,
     
     int out_height = (in_height - pool_size) / stride + 1;
     int out_width  = (in_width - pool_size) / stride + 1;
-#pragma omp parallel for private(b,oh,ow,c,ph,pw)
+
     for (int b = 0; b < batch_size; b++) {
         for (int oh = 0; oh < out_height; oh++) {
             for (int ow = 0; ow < out_width; ow++) {
@@ -216,7 +216,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
     double start_time, run_time;
     start_time = omp_get_wtime();
    
-#pragma omp parallel for private(b,i,j)
+
     for (int b = 0; b < batch_size; b++) {
         for (int i = 0; i < output_dim; i++) {
         
@@ -263,7 +263,7 @@ void FC(float** input, float** weights, float** bias, float** output, int batch_
 void ReLU(float** input, float** output,
                int batch_size, int height, int width, int channels) {
     int index = 0;
-#pragma omp parallel for private(b,h,w,c)
+
     for (int b = 0; b < batch_size; b++) {
         for (int h = 0; h < height; h++) {
             for (int w = 0; w < width; w++) {
@@ -309,7 +309,7 @@ void create_load_bias(float** bias, const unsigned int M){
         printf("\nerror with malloc allocating bias array");
         exit(EXIT_FAILURE);
     }
-#pragma omp parallel for private(i)
+
     for (unsigned int i=0; i<M; i++){
         (*bias)[i]=(float) (i % 99) + 0.41f;
         //*(bias_array_FP+i)=((float) (rand() % 5)) + 1;
@@ -334,7 +334,7 @@ void create_load_filter(float** filter, const unsigned int M, const unsigned int
     }
 
 
-#pragma omp parallel for private(m,y,x,d)
+
     //read the filter array
     for (m=0;m<M;m++)
         for (y=0;y<MaskY;y++)
@@ -368,7 +368,7 @@ void create_load_input_tensor(float** input, unsigned int B,unsigned int Yin, un
         exit(EXIT_FAILURE);
     }
 
-#pragma omp parallel for private(b,y,x,d)
+
     for (int b = 0; b < B; b++)
         for (int y = 0; y < Yin; y++)
             for (int x = 0; x < Xin; x ++)
@@ -397,7 +397,7 @@ void create_load_output_tensor(float** output, unsigned int B,unsigned int Y, un
         exit(EXIT_FAILURE);
     }
 
-#pragma omp parallel for private(b,y,x,m)
+
     for (int b = 0; b < B; b++)
         for (int y = 0; y < Y; y++)
             for (int x = 0; x < X; x ++)
