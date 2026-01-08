@@ -32,8 +32,9 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 #include <math.h>
 #include <sys/utsname.h>
 #include <unistd.h>
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -43,9 +44,15 @@ COMPILE USING gcc cnn.c -o p -O3 -fopenmp
 //note: max array size is 3d. So 3 loops code max to parallelize.
 //note: For array and grid, I need to have a global int for the loops, for example int A[N][N]; then __device__int device_a[N][N]; 
 //note: if doing grid implementation you need #define MaxNumberOfBlocksPerDIM to 65535 for one dimension only, then #define MaxNumberOfThreads 1024. 
-#define N = 100
+#define TIMES_TO_RUN 1
+#define N = 1024 //input size 
+#define CHECK_OUTPUT   //if do not want to validate the results comment this 
+
 #define MaxNumberOfBlocksPerDIM 65535
 #define MaxNumberOfThreads 1024
+#define TILE 32
+#define TILE_x2 TILE*2
+#define TILE_x4 TILE*4
 float * tensor1; //pointer to tensor
 float * tensor2; //pointer to tensor 
 float * tensor3; //pointer to tensor 
@@ -90,6 +97,7 @@ double compute_arithmetic_intensity(double flops, double bytes) {
 double compute_flops(double flops , double time) {
     return flops/ time;
 }
+__declspec(align(64)) float in[b][y][x][d], filter[m][off_y][off_x][d],out[b][y][x][m], bias[m]; //square matrixes are considered only, stored as 1d arrays
 //Task B here Conv2D
 //CUDA Optimization[30 Marks].Based on the provided cnn.c file and CUDA code examples,
 // develop CUDA code to efficiently run the conv2d and FC layers on the GPU. 
@@ -99,52 +107,48 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
-   
+  
    
     start_timeC = omp_get_wtime();
-
-    for (unsigned int b = 0; b < B; b++) { //batch
-        for(unsigned int m = 0; m < M; m++){
-                for (unsigned int y = 0; y < Y; y++) {			//Output height
-                    for (unsigned int x = 0; x < X; x++) {			//Output Width
+ __global__ void mmm_ver1(float* in, float* filter, float* out, float* bias) {
+    /* for (unsigned int b = 0; b < B; b++) { // to be parallelized
+        for(unsigned int m = 0; m < M; m++){ // to be parellelized
+                for (unsigned int y = 0; y < Y; y++) {	//serial computatuion each thread		
+                    for (unsigned int x = 0; x < X; x++) {			
                         temp = 0.0f;
                         for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
                             for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
                                 for(unsigned int d = 0; d < D; d++) {
-
-                                    unsigned int in_subscript = b * (Yin * Xin * D)
-                                                                          + (y*StrideY+off_y) * Xin * D
-                                                                          + (x*StrideX+off_x) * D
-                                                                          + d;
-                                    unsigned int filter_subscript = m * MaskY * MaskX * D
-                                                                              + off_y * MaskX * D
-                                                                              + off_x * D
-                                                                              + d;
-
-                                    float s = (*in)[in_subscript];
-                                    float w = (*filter)[filter_subscript];
-                                    temp += s * w;
-                                   
-
-
+                                    temp += in[b][y][x][d] * filter[m][off_y][off_x][d];
                                 }
                             }
                         }
-
-                        unsigned int out_subscript = b * (M * Y * X) +
-                                                               y * (M * X) +
-                                                               x * M
-                                                               + m;
-
-                        (*out)[out_subscript] = temp + (*bias)[m];
-                        
+                        out[b][y][x][m] = temp + bias[m];
                     }
-             
                 }
-                
+            }
         }
-
+    */
+	float tmp = 0.0;
+	int b = blockIdx.x * blockDim.x + threadIdx.x; // b loop has been parallelize
+	int m = blockIdx.y * blockDim.y + threadIdx.y; // m loop has been parallelized
+	if(b < N && m < N) {
+		for(int y = 0; y < N; y++){
+			for (int x = 0; x < N; x++){
+				temp = 0.0f;
+				for(int off_y = 0; off_y < N; off_y++) {
+					for(int off_x = 0; off_x < N; off_x++){
+						for(int d = 0; d < N; d++){
+							temp += in[b][y][x][d] * filter[m][off_y][off_x][d];
+						}
+					}
+				}
+				tmp += temp + bias[m];
+		}
          }
+		 }
+		 out[b][y][x][m]= tmp;
+		 }
     run_timeC = (omp_get_wtime() - start_timeC);
     double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
     double input_size = B * Yin * Xin * D;
@@ -218,7 +222,7 @@ void max_pooling(float** input, float** output,
     }
 }
 
-
+__declspec(align(64)) float output[b][i], weight[i][j], input[b][j], bias[i];
 //Task B here FC 
 // CUDA Optimization[30 Marks].Based on the provided cnn.c file and CUDA code examples,
 // develop CUDA code to efficiently run the conv2d and FC layers on the GPU. 
@@ -228,19 +232,29 @@ void max_pooling(float** input, float** output,
 void FC(float** input, float** weights, float** bias, float** output, int batch_size, int input_dim, int output_dim) {
     double start_time, run_time;
     start_time = omp_get_wtime();
-   // can use 3d 
-    for (int b = 0; b < batch_size; b++) {
-        for (int i = 0; i < output_dim; i++) {
-        
-            float sum = (*bias)[i];
-            
-            for (int j = 0; j < input_dim; j++) {
-                sum += (*weights)[i * input_dim + j] * (*input)[b * input_dim + j];
+  __global__ void mmm_ver1(float* output, float* weight, float* input, float* bias) {
+      /*
+    //In case you find the above implementation complicated, it is equivalent to the code below. 
+    //So, when you are thinking about optimization perhaps it is easier to study this version of the code instead which is equivalent
+    for (int b = 0; b < batch_size; b++) { // to be parallelize
+        for (int i = 0; i < output_dim; i++) {  // to be parallelized
+            for (int j = 0; j < input_dim; j++) { // serial computation each thread
+                output[b][i] += weights[i][j] * input[b][j] + bias[i];
             }
             
-            (*output)[b * output_dim + i] = sum;
-            
         }
+    }
+    */
+	float tmp1 = 0.0;
+	int b = blockIdx.x * blockDim.x + threadIdx.x; //b loop has been parallelized
+	int i = blockIdx.y * blockDim.y + threadIdx.y; //i loop has been parallelized
+	if ( b < N && i < N){
+		for(int j = 0; j < N; j++{
+		 tmp1 += weights[i][j] * input[b][j] + bias[i];
+		}
+		output[b][i] = tmp1;
+	}
+	
     }
     run_time = (omp_get_wtime() - start_time);
     double flops_fc = 2.0 * batch_size * input_dim * output_dim;
