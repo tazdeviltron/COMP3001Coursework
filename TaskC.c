@@ -88,52 +88,43 @@ void conv_2d(float ** in, float ** filter, float **bias, float ** out, unsigned 
     float temp;
     unsigned int X = (Xin - (MaskX - StrideX)) / StrideX;
     unsigned int Y = (Yin - (MaskY - StrideY)) / StrideY;
-    
+    __m256 ymm2, num0, num1, num5, num6, num7;
+    __m128 xmm1, xmm2;
     start_timeC = omp_get_wtime();
     //Need to use:  __mm256_load_ps() , __m256_add_ps(,), __m256_mul_ps(,) also apply reg blocking, possiably array copying transformation?
-    for (unsigned int b = 0; b < B; b++) { //batch
-        for(unsigned int m = 0; m < M; m++){
-                for (unsigned int y = 0; y < Y; y++) {			//Output height
-                    for (unsigned int x = 0; x < X; x++) {			//Output Width
-                        temp = 0.0f;
-                        for (unsigned int off_y = 0; off_y < MaskY; off_y++) {
-                            for (unsigned int off_x = 0; off_x < MaskX; off_x++) {
-								
-                                for(unsigned int d = 0; d < D; d++) {
-
-                                    unsigned int in_subscript = b * (Yin * Xin * D)
-                                                                          + (y*StrideY+off_y) * Xin * D
-                                                                          + (x*StrideX+off_x) * D
-                                                                          + d;
-                                    unsigned int filter_subscript = m * MaskY * MaskX * D
-                                                                              + off_y * MaskX * D
-                                                                              + off_x * D
-                                                                              + d;
-
-                                    float s = (*in)[in_subscript];
-                                    float w = (*filter)[filter_subscript];
-                                    temp += s * w;
-                                   
-
-
-                                }
+    for (unsigned int b = 0; b < B; b++) {
+        num1 = _mm256_setzero_ps();
+   
+        for (unsigned int m = 0; m < M; m+=8) { // from here for max marks
+  
+            for (unsigned int y = 0; y < Y; y+=8) {
+                for (unsigned int x = 0; x < X; x+=8) {
+                    num6 = _mm256_setzero_ps();
+                    for (unsigned int off_y = 0; off_y < MaskY; off_y+=8) {
+                        for (unsigned int off_x = 0; off_x < MaskX; off_x+=8) {
+                            for (unsigned int d = 0; d < D; d+=8) {
+                                num5 = _mm256_load_ps(&filter[m][off_y][off_x][d]);
+                                num0 = _mm256_load_ps(&in[b][y][x][d]);
+                                num6 = _mm256_fmadd_ps(num0, num5, num6);
+                                //temp += in[b][y][x][d] * filter[m][off_y][off_x][d];
                             }
                         }
-
-                        unsigned int out_subscript = b * (M * Y * X) +
-                                                               y * (M * X) +
-                                                               x * M
-                                                               + m;
-
-                        (*out)[out_subscript] = temp + (*bias)[m];
-                        
                     }
-             
+                    num7 = _mm256_load_ps(&bias[m]);
+                    num1 = _mm256_fmadd_ps(num7, num6, num1);
+                    ymm2 = _mm256_permute2f128_ps(num1, num1, 1);
+                    num1 = _mm256_add_ps(num1, ymm2);
+                    num1 = _mm256_hadd_ps(num1, num1);
+                    num1 = _mm256_hadd_ps(num1, num1);
+                    xmm2 = _mm256_extractf128_ps(num1, 0);
+                    _mm_store_ss((float*)&out[b][y][x][m], xmm2);
+                   // out[b][y][x][m] = temp + bias[m];
                 }
-                
+            }
         }
+    }
 
-         }
+   
     run_timeC = (omp_get_wtime() - start_timeC);
     double flops = 2.0 * B * Y * X * M * MaskY * MaskX * D;
     double input_size = B * Yin * Xin * D;
